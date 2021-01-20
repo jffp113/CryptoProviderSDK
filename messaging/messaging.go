@@ -21,10 +21,8 @@ package messaging
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	zmq "github.com/pebbe/zmq4"
 	uuid "github.com/satori/go.uuid"
-	"protobuf/validator_pb2"
 )
 
 // Generate a new UUID
@@ -32,32 +30,11 @@ func GenerateId() string {
 	return fmt.Sprint(uuid.NewV4())
 }
 
-// DumpMsg serializes a validator message
-func DumpMsg(t validator_pb2.Message_MessageType, c []byte, corrId string) ([]byte, error) {
-	msg := &validator_pb2.Message{
-		MessageType:   t,
-		CorrelationId: corrId,
-		Content:       c,
-	}
-	return proto.Marshal(msg)
-}
 
-// LoadMsg deserializes a validator message
-func LoadMsg(data []byte) (msg *validator_pb2.Message, err error) {
-	msg = &validator_pb2.Message{}
-	err = proto.Unmarshal(data, msg)
-	return
-}
 
 type Connection interface {
 	SendData(id string, data []byte) error
-	SendNewMsg(t validator_pb2.Message_MessageType, c []byte) (corrId string, err error)
-	SendNewMsgTo(id string, t validator_pb2.Message_MessageType, c []byte) (corrId string, err error)
-	SendMsg(t validator_pb2.Message_MessageType, c []byte, corrId string) error
-	SendMsgTo(id string, t validator_pb2.Message_MessageType, c []byte, corrId string) error
 	RecvData() (string, []byte, error)
-	RecvMsg() (string, *validator_pb2.Message, error)
-	RecvMsgWithId(corrId string) (string, *validator_pb2.Message, error)
 	Close()
 	Socket() *zmq.Socket
 	Monitor(zmq.Event) (*zmq.Socket, error)
@@ -71,13 +48,8 @@ type ZmqConnection struct {
 	uri      string
 	socket   *zmq.Socket
 	context  *zmq.Context
-	incoming map[string]*storedMsg
 }
 
-type storedMsg struct {
-	Id  string
-	Msg *validator_pb2.Message
-}
 
 // NewConnection establishes a new connection using the given ZMQ context and
 // socket type to the given URI.
@@ -104,7 +76,6 @@ func NewConnection(context *zmq.Context, t zmq.Type, uri string, bind bool) (*Zm
 		uri:      uri,
 		socket:   socket,
 		context:  context,
-		incoming: make(map[string]*storedMsg),
 	}, nil
 }
 
