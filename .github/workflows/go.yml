@@ -19,7 +19,7 @@ jobs:
     - name: Update packages
       run: sudo apt-get update
     - name: Install libzmq
-      run: sudo apt-get install zeromq
+      run: sudo apt-get install libzmq3-dev
 
     - name: Test
       run: go test -v ./...
