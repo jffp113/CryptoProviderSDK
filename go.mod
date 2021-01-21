@@ -4,7 +4,9 @@ go 1.15
 
 require (
 	github.com/golang/protobuf v1.4.3
+	github.com/google/go-cmp v0.4.0
 	github.com/ipfs/go-log v1.0.4
+	github.com/niclabs/tcrsa v0.0.5
 	github.com/pebbe/zmq4 v1.2.2
 	github.com/satori/go.uuid v1.2.0
 	github.com/stretchr/testify v1.4.0
