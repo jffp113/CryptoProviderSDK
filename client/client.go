@@ -38,7 +38,7 @@ type msgWithCorrelationAndChan struct {
 func NewCryptoFactory(uri string) (crypto.ContextFactory, error){
 	context, _ := zmq.NewContext()
 
-	conn, err := messaging.NewConnection(context, zmq.ROUTER, "tcp://127.0.0.1:9000", true)
+	conn, err := messaging.NewConnection(context, zmq.ROUTER, uri, true)
 
 	if err != nil {
 		return nil,err
