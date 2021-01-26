@@ -1,5 +1,5 @@
 package main
-
+/*
 import (
 	"fmt"
 	"github.com/ipfs/go-log"
@@ -45,4 +45,4 @@ func main() {
 	select {
 
 	}
-}
+}*/
