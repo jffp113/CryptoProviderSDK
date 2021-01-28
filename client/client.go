@@ -1,6 +1,8 @@
 package client
 
 import (
+	bytes2 "bytes"
+	"encoding/json"
 	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-log"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
@@ -43,6 +45,12 @@ func NewCryptoFactory(uri string) (crypto.ContextFactory, error){
 	if err != nil {
 		return nil,err
 	}
+	workers, err := messaging.NewConnection(context, zmq.ROUTER, "inproc://workers", true)
+	if err != nil {
+		return nil,err
+	}
+
+
 
 	c := cryptoClient{
 		requests:            make(map[string]chan *pb.HandlerMessage),
@@ -53,9 +61,21 @@ func NewCryptoFactory(uri string) (crypto.ContextFactory, error){
 		conn:                conn,
 	}
 
-	go c.receive()
-	go c.processInOut()
+	go c.receive(workers)
+	go c.processInOut(context)
 	go c.processNewHandlers()
+
+	/*go func(){
+		for{
+			time.Sleep(10*time.Second)
+			for _,v := range c.requests{
+				//fmt.Println(v)
+				if v != nil {
+					fmt.Println(len(v))
+				}
+			}
+		}
+	}()*/
 
 	return &c, nil
 }
@@ -65,35 +85,82 @@ func (c *cryptoClient) Close() error{
 	return nil
 }
 
-func (c *cryptoClient) receive() {
+func (c *cryptoClient) receive(workers *messaging.ZmqConnection) {
+
+
+	poller := zmq.NewPoller()
+
+	poller.Add(c.conn.Socket(),zmq.POLLIN)
+	poller.Add(workers.Socket(),zmq.POLLIN)
+
 	for {
-
-		corrId,data, err := c.conn.RecvData()
-
+		polled, err := poller.Poll(-1)
 		if err != nil {
-			logger.Warnf("Error Ignoring MSG: %v",err)
-			continue
+			logger.Error("Error Polling messages from socket")
+			return
 		}
+		for _, ready := range polled {
+			switch socket := ready.Socket; socket {
+			case c.conn.Socket():
+				corrId,data, err := c.conn.RecvData()
 
-		msg := pb.HandlerMessage{}
+				if err != nil {
+					logger.Warnf("Error Ignoring MSG: %v",err)
+					continue
+				}
 
-		err = proto.Unmarshal(data,&msg)
+				msg := pb.HandlerMessage{}
 
-		if err != nil {
-			logger.Warnf("Error Ignoring MSG: %v",err)
-			continue
+				err = proto.Unmarshal(data,&msg)
+
+				if err != nil {
+					logger.Warnf("Error Ignoring MSG: %v",err)
+					continue
+				}
+
+				c.inData<-msgWithCorrelation{
+					msg:    &msg,
+					corrId: corrId,
+				}
+
+			case workers.Socket():
+				logger.Debug("Received data")
+				_,data, err := workers.RecvData()
+
+				msg := transfer{}
+
+				reader := bytes2.NewReader(data)
+				dec := json.NewDecoder(reader)
+				dec.Decode(&msg)
+
+
+
+				err = c.conn.SendData(msg.CorrId, msg.Data)
+				logger.Debug("Sent msg out to signer")
+				if err != nil {
+					logger.Warnf("Error out msg: %v",err)
+					continue
+				}
+
+			}
 		}
-
-		c.inData<-msgWithCorrelation{
-			msg:    &msg,
-			corrId: corrId,
-		}
-
 	}
+
 }
 
+type transfer struct {
+	Data []byte
+	CorrId string
+}
 
-func (c *cryptoClient) processInOut() {
+func (c *cryptoClient) processInOut(context *zmq.Context) {
+	workers, err := messaging.NewConnection(context, zmq.DEALER, "inproc://workers", false)
+
+	if err != nil {
+		logger.Error("Error")
+		return
+	}
+
 	for{
 		select {
 		case data := <-c.inData:
@@ -117,14 +184,29 @@ func (c *cryptoClient) processInOut() {
 		case data := <-c.outData:
 			logger.Debug("Sending msg out")
 
+
 			bytes,err := proto.Marshal(data.msg)
 
 			if err != nil {
 				logger.Warnf("Error out msg: %v",err)
 				continue
 			}
+
+			tr := transfer{
+				Data:   bytes,
+				CorrId: data.corrId,
+			}
+
+			var buffer bytes2.Buffer
+			enc := json.NewEncoder(&buffer)
+
+			enc.Encode(&tr)
+
+			logger.Debug(data)
 			c.requests[data.msg.CorrelationId] = data.replyChan
-			err = c.conn.SendData(data.corrId, bytes)
+
+
+			err = workers.SendData("", buffer.Bytes())
 			logger.Debug("Sent msg out")
 			if err != nil {
 				logger.Warnf("Error out msg: %v",err)

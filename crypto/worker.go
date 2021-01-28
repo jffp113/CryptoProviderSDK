@@ -3,17 +3,31 @@ package crypto
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/jffp113/CryptoProviderSDK/crypto/pb"
+	"github.com/jffp113/CryptoProviderSDK/messaging"
+	zmq "github.com/pebbe/zmq4"
 )
 
-func worker(returnChan chan<- []byte, workerChan <-chan *pb.HandlerMessage, handlers []THSignerHandler) {
-	for msg := range workerChan{
+func worker(workerPoolURL string , context *zmq.Context, workerChan <-chan *pb.HandlerMessage, handlers []THSignerHandler) {
+	connection, err := messaging.NewConnection(context, zmq.DEALER, workerPoolURL, false)
+	defer connection.Close()
 
+	if err != nil {
+		logger.Error("Worker connection is nill")
+		panic(err)
+		return
+	}
+
+	for msg := range workerChan{
 		switch msg.Type {
-			case pb.HandlerMessage_SIGN_REQUEST: returnChan<-sign(msg,handlers)
-			case pb.HandlerMessage_VERIFY_REQUEST: returnChan<-verify(msg,handlers)
-			case pb.HandlerMessage_AGGREGATE_REQUEST: returnChan<-aggregate(msg,handlers)
-			case pb.HandlerMessage_GENERATE_THS_REQUEST: returnChan<-generateTHS(msg,handlers)
+			case pb.HandlerMessage_SIGN_REQUEST: err = connection.SendData("",sign(msg,handlers))
+			case pb.HandlerMessage_VERIFY_REQUEST: err = connection.SendData("",verify(msg,handlers))
+			case pb.HandlerMessage_AGGREGATE_REQUEST: err = connection.SendData("",aggregate(msg,handlers))
+			case pb.HandlerMessage_GENERATE_THS_REQUEST: err = connection.SendData("",generateTHS(msg,handlers))
 		}
+	}
+
+	if err != nil {
+		logger.Error("Error sending message")
 	}
 }
 
@@ -60,6 +74,7 @@ func generateTHS(msg *pb.HandlerMessage,handlers []THSignerHandler) []byte{
 		return createGenTHSErrorMsg(msg.CorrelationId)
 	}
 
+	logger.Debugf("Finished Generating THS keys")
 	return payload
 }
 
@@ -116,6 +131,8 @@ func aggregate(msg *pb.HandlerMessage,handlers []THSignerHandler) []byte{
 		logger.Warn("Error creating response message")
 		return createAggregateTHSErrorMsg(msg.CorrelationId)
 	}
+
+	logger.Debug("End Aggregating")
 
 	return payload
 }
@@ -192,6 +209,8 @@ func sign(msg *pb.HandlerMessage,handlers []THSignerHandler) []byte{
 	req := pb.SignRequest{}
 	err := proto.Unmarshal(msg.Content,&req)
 
+	logger.Debug("Start Signing")
+
 	if err != nil {
 		logger.Warnf("Ignoring message with correlation id %v",msg.CorrelationId)
 		return createsSignTHSErrorMsg(msg.CorrelationId)
@@ -227,6 +246,8 @@ func sign(msg *pb.HandlerMessage,handlers []THSignerHandler) []byte{
 		logger.Warn("Error creating response message")
 		return createsSignTHSErrorMsg(msg.CorrelationId)
 	}
+
+	logger.Debug("End signing")
 
 	return payload
 }

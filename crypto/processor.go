@@ -3,16 +3,16 @@ package crypto
 import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/ipfs/go-log"
 	"github.com/jffp113/CryptoProviderSDK/crypto/pb"
 	"github.com/jffp113/CryptoProviderSDK/messaging"
 	zmq "github.com/pebbe/zmq4"
-	"github.com/ipfs/go-log"
 )
 
 var logger = log.Logger("signer_processor")
 
 const DefaultMaxWorkQueueSize = 100
-const DefaultMaxWorkers = 4
+const DefaultMaxWorkers = 10
 
 type SignerProcessor struct {
 	uri         string
@@ -54,33 +54,89 @@ func (self *SignerProcessor) start(ctx *zmq.Context) error {
 		return err
 	}
 
-	workerChan := make(chan *pb.HandlerMessage,self.maxQueue)
-	returnChan := make(chan []byte,self.maxQueue)
-
-	setupWorkers(returnChan,workerChan,self.nThreads,self.handlers)
-	err = registerHandlers(node,self.handlers,workerChan)
+	workers, err := messaging.NewConnection(ctx, zmq.ROUTER, "inproc://workers", true)
 
 	if err != nil {
 		return err
 	}
 
-	go processIncomingMsg(node,workerChan)
-	processOutgoing(node,returnChan)
 
+	workerChan := make(chan *pb.HandlerMessage,self.maxQueue)
+
+	setupWorkers("inproc://workers",ctx,workerChan,self.nThreads,self.handlers)
+	err = registerHandlers(node,self.handlers,workerChan)
+
+	if err != nil {
+		return err
+	}
+	//go monitor(node)
+	//go processIncomingMsg(node,workerChan)
+	//processOutgoing(node,returnChan)
+
+	go processOutgoingAndIncoming(node,workers,workerChan)
 	return nil
 }
 
-func setupWorkers(returnChan chan<- []byte, workerChan <-chan *pb.HandlerMessage,
+func processOutgoingAndIncoming(node *messaging.ZmqConnection, workers *messaging.ZmqConnection, workerChan chan<- *pb.HandlerMessage) {
+	poller := zmq.NewPoller()
+
+	poller.Add(node.Socket(),zmq.POLLIN)
+	poller.Add(workers.Socket(),zmq.POLLIN)
+
+	for {
+		polled, err := poller.Poll(-1)
+		if err != nil {
+			logger.Error("Error Polling messages from socket")
+			return
+		}
+		for _, ready := range polled {
+			switch socket := ready.Socket; socket {
+			case node.Socket():
+				logger.Debug("Message Signer Node")
+				_, data, err := node.RecvData()
+
+				if err != nil {
+					logger.Warn("Error receiving data from SignerNode, ignoring msg")
+				}
+
+				msg, err := pb.UnmarshallSignMessage(data)
+
+				if err != nil {
+					logger.Warn("Error unmarshalling data from SignerNode, ignoring msg")
+				}
+
+				workerChan<-msg
+
+			case workers.Socket():
+				logger.Debug("Message from worker")
+				_, msg, err := workers.RecvData()
+
+				logger.Debug("Sending Message to signer node")
+				err = node.SendData("",msg)
+				logger.Debug("Sent Message to signer node")
+				if err != nil {
+					logger.Warn("Error sending data to SignerNode, ignoring msg")
+				}
+
+			}
+		}
+	}
+
+}
+
+
+func setupWorkers(workerPoolURL string,ctx *zmq.Context, workerChan <-chan *pb.HandlerMessage,
 	nWorkers uint,handlers []THSignerHandler  ) {
 	for i := uint(0) ; i < nWorkers; i++ {
-		go worker(returnChan, workerChan,handlers)
+		go worker(workerPoolURL,ctx,workerChan,handlers)
 	}
 }
 
 func processOutgoing(node *messaging.ZmqConnection, returnChan <-chan []byte) {
 	for msg := range returnChan{
+		logger.Debug("Sending Message to signer node")
 		err := node.SendData("",msg)
-
+		logger.Debug("Sent Message to signer node")
 		if err != nil {
 			logger.Warn("Error sending data to SignerNode, ignoring msg")
 		}
@@ -89,6 +145,7 @@ func processOutgoing(node *messaging.ZmqConnection, returnChan <-chan []byte) {
 
 func processIncomingMsg(node *messaging.ZmqConnection,workerChan chan<- *pb.HandlerMessage) {
 	logger.Debug("Started Processing incoming msgs")
+
 
 	for {
 		_, data, err := node.RecvData()

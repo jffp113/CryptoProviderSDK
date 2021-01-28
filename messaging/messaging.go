@@ -95,6 +95,7 @@ func (self *ZmqConnection) SendData(id string, data []byte) error {
 			return err
 		}
 	}
+
 	return nil
 }
 

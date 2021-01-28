@@ -1,10 +1,12 @@
 package main
 
 import (
+	"github.com/ipfs/go-log"
 	"github.com/jffp113/CryptoProviderSDK/client"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/tbls"
 	"github.com/stretchr/testify/require"
+	"sync"
 	"testing"
 	"time"
 )
@@ -33,7 +35,6 @@ func TestTBLSClientServer(test *testing.T) {
 	for i := t; i <= n; i++ {
 		tblsSuccessSignature(n, t,gen,sign,test)
 	}
-
 
 }
 
@@ -98,3 +99,46 @@ func TestTBLSNotEnoughSharesServerError(test *testing.T) {
 
 }
 
+func TestStress(test *testing.T) {
+	goroutines := 40
+	_ = log.SetLogLevel("crypto_client", "debug")
+	_ = log.SetLogLevel("signer_processor", "debug")
+	//context , err := client.NewCryptoFactory(URI)
+
+	//require.Nil(test, err)
+
+	keygen := context.GetKeyGenerator(SCHEME)
+	tbls := context.GetSignerVerifierAggregator(SCHEME)
+
+	time.Sleep(1 * time.Second)
+	go setupDistributesCrypto()
+	time.Sleep(1 * time.Second)
+
+	msg := []byte("Test TBLS")
+
+	n := 10
+	t := n/2 + 1
+
+	_, shares := keygen.Gen(n, t)
+
+	//sigShares := make([][]byte, 0)
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := 0 ; g < goroutines ; g++ {
+		go func() {
+			for i := 0 ; i < 200 ; i++ {
+				_, err := tbls.Sign(msg, shares[0])
+				require.Nil(test, err)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+
+	//_, err = tbls.Aggregate(sigShares, msg, pub, t, n)
+
+	//require.NotNil(test, err)
+
+}
