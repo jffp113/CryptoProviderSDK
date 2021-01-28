@@ -103,9 +103,6 @@ func TestStress(test *testing.T) {
 	goroutines := 40
 	_ = log.SetLogLevel("crypto_client", "debug")
 	_ = log.SetLogLevel("signer_processor", "debug")
-	//context , err := client.NewCryptoFactory(URI)
-
-	//require.Nil(test, err)
 
 	keygen := context.GetKeyGenerator(SCHEME)
 	tbls := context.GetSignerVerifierAggregator(SCHEME)

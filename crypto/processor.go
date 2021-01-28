@@ -69,17 +69,13 @@ func (self *SignerProcessor) start(ctx *zmq.Context) error {
 	if err != nil {
 		return err
 	}
-	//go monitor(node)
-	//go processIncomingMsg(node,workerChan)
-	//processOutgoing(node,returnChan)
 
-	go processOutgoingAndIncoming(node,workers,workerChan)
+	processOutgoingAndIncoming(node,workers,workerChan)
 	return nil
 }
 
 func processOutgoingAndIncoming(node *messaging.ZmqConnection, workers *messaging.ZmqConnection, workerChan chan<- *pb.HandlerMessage) {
 	poller := zmq.NewPoller()
-
 	poller.Add(node.Socket(),zmq.POLLIN)
 	poller.Add(workers.Socket(),zmq.POLLIN)
 
@@ -92,36 +88,42 @@ func processOutgoingAndIncoming(node *messaging.ZmqConnection, workers *messagin
 		for _, ready := range polled {
 			switch socket := ready.Socket; socket {
 			case node.Socket():
-				logger.Debug("Message Signer Node")
-				_, data, err := node.RecvData()
-
-				if err != nil {
-					logger.Warn("Error receiving data from SignerNode, ignoring msg")
-				}
-
-				msg, err := pb.UnmarshallSignMessage(data)
-
-				if err != nil {
-					logger.Warn("Error unmarshalling data from SignerNode, ignoring msg")
-				}
-
-				workerChan<-msg
-
+				receiveMessageFromSignerNode(node,workerChan)
 			case workers.Socket():
-				logger.Debug("Message from worker")
-				_, msg, err := workers.RecvData()
-
-				logger.Debug("Sending Message to signer node")
-				err = node.SendData("",msg)
-				logger.Debug("Sent Message to signer node")
-				if err != nil {
-					logger.Warn("Error sending data to SignerNode, ignoring msg")
-				}
-
+				receiveMessageFromWorkers(workers,node)
 			}
 		}
 	}
+}
 
+func receiveMessageFromWorkers(workers *messaging.ZmqConnection, node *messaging.ZmqConnection) {
+	logger.Debug("Receiving Message from Worker")
+	_, msg, err := workers.RecvData()
+
+	err = node.SendData("",msg)
+
+	logger.Debug("Message Sent To Signer Node")
+
+	if err != nil {
+		logger.Error("Error sending data to SignerNode, ignoring msg")
+	}
+}
+
+func receiveMessageFromSignerNode(node *messaging.ZmqConnection, workerChan chan<- *pb.HandlerMessage) {
+	logger.Debug("Message Signer Node")
+	_, data, err := node.RecvData()
+
+	if err != nil {
+		logger.Warn("Error receiving data from SignerNode, ignoring msg")
+	}
+
+	msg, err := pb.UnmarshallSignMessage(data)
+
+	if err != nil {
+		logger.Warn("Error unmarshalling data from SignerNode, ignoring msg")
+	}
+
+	workerChan<-msg
 }
 
 
@@ -132,38 +134,7 @@ func setupWorkers(workerPoolURL string,ctx *zmq.Context, workerChan <-chan *pb.H
 	}
 }
 
-func processOutgoing(node *messaging.ZmqConnection, returnChan <-chan []byte) {
-	for msg := range returnChan{
-		logger.Debug("Sending Message to signer node")
-		err := node.SendData("",msg)
-		logger.Debug("Sent Message to signer node")
-		if err != nil {
-			logger.Warn("Error sending data to SignerNode, ignoring msg")
-		}
-	}
-}
 
-func processIncomingMsg(node *messaging.ZmqConnection,workerChan chan<- *pb.HandlerMessage) {
-	logger.Debug("Started Processing incoming msgs")
-
-
-	for {
-		_, data, err := node.RecvData()
-
-		if err != nil {
-			logger.Warn("Error receiving data from SignerNode, ignoring msg")
-		}
-
-		msg, err := pb.UnmarshallSignMessage(data)
-
-		if err != nil {
-			logger.Warn("Error unmarshalling data from SignerNode, ignoring msg")
-		}
-
-		workerChan<-msg
-	}
-
-}
 
 func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler,workerChan chan<-*pb.HandlerMessage) error {
 
@@ -172,6 +143,7 @@ func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler,
 		regRequest := &pb.HandlerRegisterRequest{
 			Scheme:       handler.SchemeName(),
 		}
+
 		logger.Debugf("Registering (%v)", regRequest.Scheme)
 
 
@@ -195,7 +167,7 @@ func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler,
 		}
 
 		for{
-			logger.Infof("Waiting for response (%v)",handler.SchemeName())
+			logger.Infof("Waiting for response (%v)", handler.SchemeName())
 			_, data, err := node.RecvData()
 			if err != nil {
 				return err
@@ -227,8 +199,6 @@ func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler,
 			logger.Infof("Successfully registered handler (%v)",handler.SchemeName())
 			break
 		}
-
-
 	}
 	return nil
 }
