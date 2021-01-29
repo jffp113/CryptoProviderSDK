@@ -18,7 +18,6 @@ var (
 const HashType = go_crypto.SHA256
 
 type trsa struct {
-
 }
 
 type signatureShare struct {
@@ -30,7 +29,7 @@ func (sig signatureShare) MarshallBinary() (data []byte, err error) {
 }
 
 type privKey struct {
-	Meta *tcrsa.KeyMeta
+	Meta     *tcrsa.KeyMeta
 	KeyShare *tcrsa.KeyShare
 }
 
@@ -57,13 +56,13 @@ func (self trsa) Sign(digest []byte, key crypto.PrivateKey) (signature []byte, e
 	docPKCS1, err := tcrsa.PrepareDocumentHash(priv.Meta.PublicKey.Size(), HashType, docHash[:])
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
-	sigShare , err := priv.KeyShare.Sign(docPKCS1, HashType, priv.Meta)
+	sigShare, err := priv.KeyShare.Sign(docPKCS1, HashType, priv.Meta)
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	return signatureShare{sigShare}.MarshallBinary()
@@ -84,15 +83,15 @@ func (self trsa) Aggregate(share [][]byte, digest []byte, key crypto.PublicKey, 
 	pub, ok := key.(pubKey)
 
 	if !ok {
-		return nil,keyError
+		return nil, keyError
 	}
 
-	s := make(tcrsa.SigShareList,0)
+	s := make(tcrsa.SigShareList, 0)
 
-	for _,v := range share {
+	for _, v := range share {
 		unmarshalled := signatureShare{}
-		unmarshallFromJson(v,&unmarshalled)
-		s = append(s,unmarshalled.SigShare)
+		unmarshallFromJson(v, &unmarshalled)
+		s = append(s, unmarshalled.SigShare)
 	}
 
 	docHash := sha256.Sum256(digest)
@@ -104,13 +103,13 @@ func (self trsa) Gen(n int, t int) (crypto.PublicKey, crypto.PrivateKeyList) {
 	// Generate keys provides to u with a list of keyShares and the key metainformation.
 	keyShares, keyMeta, err := tcrsa.NewKey(1024, uint16(t), uint16(n), nil)
 
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 
-	sl := make(crypto.PrivateKeyList,0)
-	for _,v := range keyShares {
-		sl = append(sl,privKey{
+	sl := make(crypto.PrivateKeyList, 0)
+	for _, v := range keyShares {
+		sl = append(sl, privKey{
 			Meta:     keyMeta,
 			KeyShare: v,
 		})
@@ -127,13 +126,13 @@ func (self trsa) SchemeName() string {
 
 func (self trsa) UnmarshalPublic(data []byte) crypto.PublicKey {
 	pub := pubKey{}
-	unmarshallFromJson(data,&pub)
+	unmarshallFromJson(data, &pub)
 	return pub
 }
 
 func (self trsa) UnmarshalPrivate(data []byte) crypto.PrivateKey {
 	priv := privKey{}
-	unmarshallFromJson(data,&priv)
+	unmarshallFromJson(data, &priv)
 	return priv
 }
 
@@ -149,14 +148,14 @@ func NewTRSACryptoHandler() crypto.THSignerHandler {
 	return &trsa{}
 }
 
-func marshallToJSON(v interface{}) ([]byte, error){
-	var buffer bytes.Buffer        // Stand-in for a network connection
+func marshallToJSON(v interface{}) ([]byte, error) {
+	var buffer bytes.Buffer         // Stand-in for a network connection
 	enc := json.NewEncoder(&buffer) // Will write to network.
 	err := enc.Encode(v)
-	return buffer.Bytes(),err
+	return buffer.Bytes(), err
 }
 
-func unmarshallFromJson(data []byte,v interface{}) {
+func unmarshallFromJson(data []byte, v interface{}) {
 	reader := bytes.NewReader(data)
 	dec := json.NewDecoder(reader)
 	dec.Decode(v)
@@ -164,5 +163,3 @@ func unmarshallFromJson(data []byte,v interface{}) {
 
 func main() {
 }
-
-

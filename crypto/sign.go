@@ -2,25 +2,26 @@ package crypto
 
 import (
 	"encoding"
+	"io"
 )
 
 // PublicKey represents a public key using an unspecified algorithm.
-type PublicKey interface{
+type PublicKey interface {
 	encoding.BinaryMarshaler
 }
 
 // PrivateKey represents a private key using an unspecified algorithm.
-type PrivateKey interface{
+type PrivateKey interface {
 	encoding.BinaryMarshaler
 }
 
 type PrivateKeyList []PrivateKey
 
-func (priv PrivateKeyList) MarshalBinary() (data [][]byte, err error){
-	privSlice := make([][]byte,len(priv))
+func (priv PrivateKeyList) MarshalBinary() (data [][]byte, err error) {
+	privSlice := make([][]byte, len(priv))
 
-	for i,v := range priv {
-		bytes,err := v.MarshalBinary()
+	for i, v := range priv {
+		bytes, err := v.MarshalBinary()
 
 		if err != nil {
 			return nil, err
@@ -28,7 +29,7 @@ func (priv PrivateKeyList) MarshalBinary() (data [][]byte, err error){
 		privSlice[i] = bytes
 	}
 
-	return privSlice,nil
+	return privSlice, nil
 }
 
 type KeyGenerator interface {
@@ -67,13 +68,10 @@ type Verifier interface {
 }
 
 type Aggregator interface {
-	Aggregate(share [][]byte, digest []byte, key PublicKey, t,n int) (signature []byte, err error)
+	Aggregate(share [][]byte, digest []byte, key PublicKey, t, n int) (signature []byte, err error)
 }
 
 type ContextFactory interface {
-	GetSignerVerifierAggregator(cryptoId string) SignerVerifierAggregator
-	GetKeyGenerator(cryptoId string) KeyShareGenerator
+	GetSignerVerifierAggregator(cryptoId string) (SignerVerifierAggregator, io.Closer)
+	GetKeyGenerator(cryptoId string) (KeyShareGenerator, io.Closer)
 }
-
-
-

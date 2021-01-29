@@ -14,41 +14,40 @@ import (
 //Mocks
 
 type mockSignerHandler struct {
-
 }
 
 type mockPrivKey []byte
 type mockPubKey []byte
 
-func (m mockPrivKey) MarshalBinary() (data []byte, err error){
-	return m , nil
+func (m mockPrivKey) MarshalBinary() (data []byte, err error) {
+	return m, nil
 }
-func (m mockPubKey) MarshalBinary() (data []byte, err error){
-	return m , nil
+func (m mockPubKey) MarshalBinary() (data []byte, err error) {
+	return m, nil
 }
 
 func (m mockSignerHandler) Gen(n int, t int) (PublicKey, PrivateKeyList) {
-	l := make([]PrivateKey,n)
+	l := make([]PrivateKey, n)
 
-	for i := 1 ;i <= n; i++ {
-		l[i - 1] = mockPrivKey("1")
+	for i := 1; i <= n; i++ {
+		l[i-1] = mockPrivKey("1")
 	}
 
-	return mockPubKey("ok"),l
+	return mockPubKey("ok"), l
 }
 
 //This mock will give a error when the digest is zero length
 func (m mockSignerHandler) Sign(digest []byte, key PrivateKey) (signature []byte, err error) {
 	var buff bytes.Buffer
 
-	if len(digest) == 0{
-		return nil,errors.New("Could not sign")
+	if len(digest) == 0 {
+		return nil, errors.New("Could not sign")
 	}
 
 	buff.Write(digest)
 	b, _ := key.MarshalBinary()
 	buff.Write(b)
-	return signature,nil
+	return signature, nil
 }
 
 //This mock will give a error when the PublicKey is zero length
@@ -67,7 +66,7 @@ func (m mockSignerHandler) Aggregate(share [][]byte, digest []byte, key PublicKe
 	if t > n {
 		return nil, errors.New("error aggregating sig")
 	}
-	return digest,nil
+	return digest, nil
 }
 
 func (m mockSignerHandler) SchemeName() string {
@@ -82,28 +81,28 @@ func (m mockSignerHandler) UnmarshalPrivate(data []byte) PrivateKey {
 	return mockPrivKey(data)
 }
 
-func prepareTest(uri string, ctx *zmq.Context) (chan *pb.HandlerMessage) {
-	handlers:= make([]THSignerHandler,0)
-	handlers = append(handlers,mockSignerHandler{})
+func prepareTest(uri string, ctx *zmq.Context) chan *pb.HandlerMessage {
+	handlers := make([]THSignerHandler, 0)
+	handlers = append(handlers, mockSignerHandler{})
 
-	workerChan := make(chan *pb.HandlerMessage,1)
+	workerChan := make(chan *pb.HandlerMessage, 1)
 
-	go worker(uri,ctx,workerChan,handlers)
+	go worker(uri, ctx, workerChan, handlers)
 
 	return workerChan
 }
 
 func TestVerifyWhenVerifySucceeds(test *testing.T) {
 	uri := "inproc://workers"
-	ctx,_ := zmq.NewContext()
+	ctx, _ := zmq.NewContext()
 
 	workers, err := messaging.NewConnection(ctx, zmq.ROUTER, uri, true)
 
-	assert.Nil(test,err)
+	assert.Nil(test, err)
 
 	defer workers.Close()
 
-	workerChan := prepareTest(uri,ctx)
+	workerChan := prepareTest(uri, ctx)
 
 	verifyReq := pb.VerifyRequest{
 		Scheme:    "Mock",
@@ -112,10 +111,10 @@ func TestVerifyWhenVerifySucceeds(test *testing.T) {
 		PubKey:    mockPubKey("hello"),
 	}
 
-	msg , _ , _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_VERIFY_REQUEST,&verifyReq,"1")
-	workerChan<-msg
+	msg, _, _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_VERIFY_REQUEST, &verifyReq, "1", "")
+	workerChan <- msg
 
-	_,responseBytes,_ := workers.RecvData()
+	_, responseBytes, _ := workers.RecvData()
 
 	responseHandlerMsg := unmarshallBytesToHandlerMessage(responseBytes)
 
@@ -127,7 +126,7 @@ func TestVerifyWhenVerifySucceeds(test *testing.T) {
 	}
 
 	verifyResponse := pb.VerifyResponse{}
-	proto.Unmarshal(responseHandlerMsg.Content,&verifyResponse)
+	proto.Unmarshal(responseHandlerMsg.Content, &verifyResponse)
 
 	if verifyResponse.Status != pb.VerifyResponse_OK {
 		test.Error("Verification Failed")
@@ -136,15 +135,15 @@ func TestVerifyWhenVerifySucceeds(test *testing.T) {
 
 func TestVerifyWhenVerifyFails(test *testing.T) {
 	uri := "inproc://workers"
-	ctx,_ := zmq.NewContext()
+	ctx, _ := zmq.NewContext()
 
 	workers, err := messaging.NewConnection(ctx, zmq.ROUTER, uri, true)
 
-	assert.Nil(test,err)
+	assert.Nil(test, err)
 
 	defer workers.Close()
 
-	workerChan := prepareTest(uri,ctx)
+	workerChan := prepareTest(uri, ctx)
 
 	verifyReq := pb.VerifyRequest{
 		Scheme:    "Mock",
@@ -153,15 +152,15 @@ func TestVerifyWhenVerifyFails(test *testing.T) {
 		PubKey:    mockPubKey(""),
 	}
 
-	msg , _ , _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_VERIFY_REQUEST,&verifyReq,"1")
-	workerChan<-msg
+	msg, _, _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_VERIFY_REQUEST, &verifyReq, "1", "")
+	workerChan <- msg
 
-	_,responseBytes,_ := workers.RecvData()
+	_, responseBytes, _ := workers.RecvData()
 
 	responseHandlerMsg := unmarshallBytesToHandlerMessage(responseBytes)
 
 	verifyResponse := pb.VerifyResponse{}
-	proto.Unmarshal(responseHandlerMsg.Content,&verifyResponse)
+	proto.Unmarshal(responseHandlerMsg.Content, &verifyResponse)
 
 	if verifyResponse.Status != pb.VerifyResponse_ERROR {
 		test.Error("Verification should not have succeeds")
@@ -170,15 +169,15 @@ func TestVerifyWhenVerifyFails(test *testing.T) {
 
 func TestSignWhenSignSucceeds(test *testing.T) {
 	uri := "inproc://workers"
-	ctx,_ := zmq.NewContext()
+	ctx, _ := zmq.NewContext()
 
 	workers, err := messaging.NewConnection(ctx, zmq.ROUTER, uri, true)
 
-	assert.Nil(test,err)
+	assert.Nil(test, err)
 
 	defer workers.Close()
 
-	workerChan := prepareTest(uri,ctx)
+	workerChan := prepareTest(uri, ctx)
 
 	signReq := pb.SignRequest{
 		Scheme:      "Mock",
@@ -186,10 +185,10 @@ func TestSignWhenSignSucceeds(test *testing.T) {
 		PrivateKeys: mockPrivKey{},
 	}
 
-	msg , _ , _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_SIGN_REQUEST,&signReq,"1")
-	workerChan<-msg
+	msg, _, _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_SIGN_REQUEST, &signReq, "1", "")
+	workerChan <- msg
 
-	_,responseBytes,_ := workers.RecvData()
+	_, responseBytes, _ := workers.RecvData()
 
 	responseHandlerMsg := unmarshallBytesToHandlerMessage(responseBytes)
 
@@ -201,7 +200,7 @@ func TestSignWhenSignSucceeds(test *testing.T) {
 	}
 
 	signResponse := pb.SignResponse{}
-	proto.Unmarshal(responseHandlerMsg.Content,&signResponse)
+	proto.Unmarshal(responseHandlerMsg.Content, &signResponse)
 
 	if signResponse.Status != pb.SignResponse_OK {
 		test.Error("Verification Failed")
@@ -210,37 +209,37 @@ func TestSignWhenSignSucceeds(test *testing.T) {
 
 func TestSignWhenSignFails(test *testing.T) {
 	uri := "inproc://workers"
-	ctx,_ := zmq.NewContext()
+	ctx, _ := zmq.NewContext()
 
 	workers, err := messaging.NewConnection(ctx, zmq.ROUTER, uri, true)
 
-	assert.Nil(test,err)
+	assert.Nil(test, err)
 
 	defer workers.Close()
 
-	workerChan := prepareTest(uri,ctx)
+	workerChan := prepareTest(uri, ctx)
 	signReq := pb.SignRequest{
 		Scheme:      "Mock",
 		Digest:      []byte(""),
 		PrivateKeys: mockPrivKey{},
 	}
 
-	msg , _ , _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_SIGN_REQUEST,&signReq,"1")
-	workerChan<-msg
+	msg, _, _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_SIGN_REQUEST, &signReq, "1", "")
+	workerChan <- msg
 
-	_,responseBytes,_ := workers.RecvData()
+	_, responseBytes, _ := workers.RecvData()
 
 	responseHandlerMsg := unmarshallBytesToHandlerMessage(responseBytes)
 
 	signResponse := pb.SignResponse{}
-	proto.Unmarshal(responseHandlerMsg.Content,&signResponse)
+	proto.Unmarshal(responseHandlerMsg.Content, &signResponse)
 
 	if signResponse.Status != pb.SignResponse_ERROR {
 		test.Error("Verification Failed")
 	}
 }
 
-func unmarshallBytesToHandlerMessage(data []byte)  *pb.HandlerMessage{
+func unmarshallBytesToHandlerMessage(data []byte) *pb.HandlerMessage {
 	h := pb.HandlerMessage{}
 	_ = proto.Unmarshal(data, &h)
 	return &h
@@ -248,15 +247,15 @@ func unmarshallBytesToHandlerMessage(data []byte)  *pb.HandlerMessage{
 
 func TestAggregateWhenAggregateSucceeds(test *testing.T) {
 	uri := "inproc://workers"
-	ctx,_ := zmq.NewContext()
+	ctx, _ := zmq.NewContext()
 
 	workers, err := messaging.NewConnection(ctx, zmq.ROUTER, uri, true)
 
-	assert.Nil(test,err)
+	assert.Nil(test, err)
 
 	defer workers.Close()
 
-	workerChan := prepareTest(uri,ctx)
+	workerChan := prepareTest(uri, ctx)
 
 	aggregateReq := pb.AggregateRequest{
 		Scheme: "Mock",
@@ -267,10 +266,10 @@ func TestAggregateWhenAggregateSucceeds(test *testing.T) {
 		N:      5,
 	}
 
-	msg , _ , _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_AGGREGATE_REQUEST,&aggregateReq,"1")
-	workerChan<-msg
+	msg, _, _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_AGGREGATE_REQUEST, &aggregateReq, "1", "")
+	workerChan <- msg
 
-	_,responseBytes,_ := workers.RecvData()
+	_, responseBytes, _ := workers.RecvData()
 
 	responseHandlerMsg := unmarshallBytesToHandlerMessage(responseBytes)
 
@@ -282,7 +281,7 @@ func TestAggregateWhenAggregateSucceeds(test *testing.T) {
 	}
 
 	aggregateResponse := pb.AggregateResponse{}
-	proto.Unmarshal(responseHandlerMsg.Content,&aggregateResponse)
+	proto.Unmarshal(responseHandlerMsg.Content, &aggregateResponse)
 
 	if aggregateResponse.Status != pb.AggregateResponse_OK {
 		test.Error("Verification Failed")
@@ -291,15 +290,15 @@ func TestAggregateWhenAggregateSucceeds(test *testing.T) {
 
 func TestAggregateWhenAggregateFails(test *testing.T) {
 	uri := "inproc://workers"
-	ctx,_ := zmq.NewContext()
+	ctx, _ := zmq.NewContext()
 
 	workers, err := messaging.NewConnection(ctx, zmq.ROUTER, uri, true)
 
-	assert.Nil(test,err)
+	assert.Nil(test, err)
 
 	defer workers.Close()
 
-	workerChan := prepareTest(uri,ctx)
+	workerChan := prepareTest(uri, ctx)
 
 	aggregateReq := pb.AggregateRequest{
 		Scheme: "Mock",
@@ -310,15 +309,15 @@ func TestAggregateWhenAggregateFails(test *testing.T) {
 		N:      5,
 	}
 
-	msg , _ , _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_AGGREGATE_REQUEST,&aggregateReq,"1")
-	workerChan<-msg
+	msg, _, _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_AGGREGATE_REQUEST, &aggregateReq, "1", "")
+	workerChan <- msg
 
-	_,responseBytes,_ := workers.RecvData()
+	_, responseBytes, _ := workers.RecvData()
 
 	responseHandlerMsg := unmarshallBytesToHandlerMessage(responseBytes)
 
 	aggregateResponse := pb.AggregateResponse{}
-	proto.Unmarshal(responseHandlerMsg.Content,&aggregateResponse)
+	proto.Unmarshal(responseHandlerMsg.Content, &aggregateResponse)
 
 	if aggregateResponse.Status != pb.AggregateResponse_ERROR {
 		test.Error("Verification Failed")
@@ -327,15 +326,15 @@ func TestAggregateWhenAggregateFails(test *testing.T) {
 
 func TestGenWhenGenSucceeds(test *testing.T) {
 	uri := "inproc://workers"
-	ctx,_ := zmq.NewContext()
+	ctx, _ := zmq.NewContext()
 
 	workers, err := messaging.NewConnection(ctx, zmq.ROUTER, uri, true)
 
-	assert.Nil(test,err)
+	assert.Nil(test, err)
 
 	defer workers.Close()
 
-	workerChan := prepareTest(uri,ctx)
+	workerChan := prepareTest(uri, ctx)
 
 	genReq := pb.GenerateTHSRequest{
 		Scheme: "Mock",
@@ -343,10 +342,10 @@ func TestGenWhenGenSucceeds(test *testing.T) {
 		N:      5,
 	}
 
-	msg , _ , _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_GENERATE_THS_REQUEST,&genReq,"1")
-	workerChan<-msg
+	msg, _, _ := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_GENERATE_THS_REQUEST, &genReq, "1", "")
+	workerChan <- msg
 
-	_,responseBytes,_ := workers.RecvData()
+	_, responseBytes, _ := workers.RecvData()
 
 	responseHandlerMsg := unmarshallBytesToHandlerMessage(responseBytes)
 
@@ -358,7 +357,7 @@ func TestGenWhenGenSucceeds(test *testing.T) {
 	}
 
 	genResponse := pb.GenerateTHSResponse{}
-	proto.Unmarshal(responseHandlerMsg.Content,&genResponse)
+	proto.Unmarshal(responseHandlerMsg.Content, &genResponse)
 
 	if genResponse.Status != pb.GenerateTHSResponse_OK {
 		test.Error("Verification Failed")

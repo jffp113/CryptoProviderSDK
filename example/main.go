@@ -3,14 +3,14 @@ package main
 import (
 	"fmt"
 	"github.com/ipfs/go-log"
+	"github.com/jessevdk/go-flags"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/tbls"
-	"github.com/jessevdk/go-flags"
 	"os"
 )
 
 type Opts struct {
-	SignerNodeURL       string    `short:"u" long:"url" description:"Signer Node URL" default:"tcp://127.0.0.1:9000"`
+	SignerNodeURL string `short:"u" long:"url" description:"Signer Node URL" default:"tcp://127.0.0.1:9000"`
 }
 
 func main() {
@@ -31,7 +31,6 @@ func main() {
 		fmt.Printf("Error: Unrecognized arguments passed: %v\n", remaining)
 		os.Exit(2)
 	}
-
 
 	_ = log.SetLogLevel("signer_processor", "debug")
 

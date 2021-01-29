@@ -23,7 +23,7 @@ message HandlerMessage {
     Type type = 1;
 
     string correlation_id = 2;
-
+    string handler_id = 3;
     bytes content = 4;
 
 }

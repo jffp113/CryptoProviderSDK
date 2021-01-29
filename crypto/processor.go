@@ -15,11 +15,11 @@ const DefaultMaxWorkQueueSize = 100
 const DefaultMaxWorkers = 10
 
 type SignerProcessor struct {
-	uri         string
-	ids         map[string]string
-	handlers    []THSignerHandler
-	nThreads    uint
-	maxQueue    uint
+	uri      string
+	ids      map[string]string
+	handlers []THSignerHandler
+	nThreads uint
+	maxQueue uint
 }
 
 func NewSignerProcessor(uri string) *SignerProcessor {
@@ -60,24 +60,23 @@ func (self *SignerProcessor) start(ctx *zmq.Context) error {
 		return err
 	}
 
+	workerChan := make(chan *pb.HandlerMessage, self.maxQueue)
 
-	workerChan := make(chan *pb.HandlerMessage,self.maxQueue)
-
-	setupWorkers("inproc://workers",ctx,workerChan,self.nThreads,self.handlers)
-	err = registerHandlers(node,self.handlers,workerChan)
+	setupWorkers("inproc://workers", ctx, workerChan, self.nThreads, self.handlers)
+	err = registerHandlers(node, self.handlers, workerChan)
 
 	if err != nil {
 		return err
 	}
 
-	processOutgoingAndIncoming(node,workers,workerChan)
+	processOutgoingAndIncoming(node, workers, workerChan)
 	return nil
 }
 
 func processOutgoingAndIncoming(node *messaging.ZmqConnection, workers *messaging.ZmqConnection, workerChan chan<- *pb.HandlerMessage) {
 	poller := zmq.NewPoller()
-	poller.Add(node.Socket(),zmq.POLLIN)
-	poller.Add(workers.Socket(),zmq.POLLIN)
+	poller.Add(node.Socket(), zmq.POLLIN)
+	poller.Add(workers.Socket(), zmq.POLLIN)
 
 	for {
 		polled, err := poller.Poll(-1)
@@ -88,9 +87,9 @@ func processOutgoingAndIncoming(node *messaging.ZmqConnection, workers *messagin
 		for _, ready := range polled {
 			switch socket := ready.Socket; socket {
 			case node.Socket():
-				receiveMessageFromSignerNode(node,workerChan)
+				receiveMessageFromSignerNode(node, workerChan)
 			case workers.Socket():
-				receiveMessageFromWorkers(workers,node)
+				receiveMessageFromWorkers(workers, node)
 			}
 		}
 	}
@@ -100,7 +99,7 @@ func receiveMessageFromWorkers(workers *messaging.ZmqConnection, node *messaging
 	logger.Debug("Receiving Message from Worker")
 	_, msg, err := workers.RecvData()
 
-	err = node.SendData("",msg)
+	err = node.SendData("", msg)
 
 	logger.Debug("Message Sent To Signer Node")
 
@@ -123,29 +122,25 @@ func receiveMessageFromSignerNode(node *messaging.ZmqConnection, workerChan chan
 		logger.Warn("Error unmarshalling data from SignerNode, ignoring msg")
 	}
 
-	workerChan<-msg
+	workerChan <- msg
 }
 
-
-func setupWorkers(workerPoolURL string,ctx *zmq.Context, workerChan <-chan *pb.HandlerMessage,
-	nWorkers uint,handlers []THSignerHandler  ) {
-	for i := uint(0) ; i < nWorkers; i++ {
-		go worker(workerPoolURL,ctx,workerChan,handlers)
+func setupWorkers(workerPoolURL string, ctx *zmq.Context, workerChan <-chan *pb.HandlerMessage,
+	nWorkers uint, handlers []THSignerHandler) {
+	for i := uint(0); i < nWorkers; i++ {
+		go worker(workerPoolURL, ctx, workerChan, handlers)
 	}
 }
 
+func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler, workerChan chan<- *pb.HandlerMessage) error {
 
-
-func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler,workerChan chan<-*pb.HandlerMessage) error {
-
-	for _,handler := range handlers{
+	for _, handler := range handlers {
 
 		regRequest := &pb.HandlerRegisterRequest{
-			Scheme:       handler.SchemeName(),
+			Scheme: handler.SchemeName(),
 		}
 
 		logger.Debugf("Registering (%v)", regRequest.Scheme)
-
 
 		regRequestData, err := proto.Marshal(regRequest)
 
@@ -153,20 +148,19 @@ func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler,
 			return err
 		}
 
-
-		bytes,corrId,err := pb.CreateSignMessage(pb.HandlerMessage_HANDLER_REGISTER_REQUEST,regRequestData)
-
-		if err != nil {
-			return err
-		}
-
-		err = node.SendData("",bytes)
+		bytes, corrId, err := pb.CreateSignMessage(pb.HandlerMessage_HANDLER_REGISTER_REQUEST, regRequestData)
 
 		if err != nil {
 			return err
 		}
 
-		for{
+		err = node.SendData("", bytes)
+
+		if err != nil {
+			return err
+		}
+
+		for {
 			logger.Infof("Waiting for response (%v)", handler.SchemeName())
 			_, data, err := node.RecvData()
 			if err != nil {
@@ -178,8 +172,8 @@ func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler,
 				return err
 			}
 
-			if msg.CorrelationId != corrId{
-				workerChan<-msg
+			if msg.CorrelationId != corrId {
+				workerChan <- msg
 				continue
 			}
 
@@ -196,12 +190,9 @@ func registerHandlers(node *messaging.ZmqConnection, handlers []THSignerHandler,
 				return fmt.Errorf("got response: %v", respMsg.Status)
 			}
 
-			logger.Infof("Successfully registered handler (%v)",handler.SchemeName())
+			logger.Infof("Successfully registered handler (%v)", handler.SchemeName())
 			break
 		}
 	}
 	return nil
 }
-
-
-

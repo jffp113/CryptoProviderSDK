@@ -11,44 +11,44 @@ func GenerateId() string {
 	return fmt.Sprint(uuid.NewV4())
 }
 
-func CreateSignMessage(msgType HandlerMessage_Type, data []byte) ([]byte, string , error){
+func CreateSignMessage(msgType HandlerMessage_Type, data []byte) ([]byte, string, error) {
 	corrId := GenerateId()
-	return CreateSignMessageWithCorrelationId(msgType,data,corrId)
+	return CreateSignMessageWithCorrelationId(msgType, data, corrId)
 }
 
-func CreateSignMessageWithCorrelationId(msgType HandlerMessage_Type, data []byte, corrId string) ([]byte, string , error){
-	b,err := proto.Marshal(&HandlerMessage{
+func CreateSignMessageWithCorrelationId(msgType HandlerMessage_Type, data []byte, corrId string) ([]byte, string, error) {
+	b, err := proto.Marshal(&HandlerMessage{
 		Type:          msgType,
 		CorrelationId: corrId,
 		Content:       data,
 	})
-	return b,corrId,err
+	return b, corrId, err
 }
 
-func CreateHandlerMessageWithCorrelationId(msgType HandlerMessage_Type, data proto.Message, corrId string) (*HandlerMessage, string , error){
-	bytes,err := proto.Marshal(data)
+func CreateHandlerMessageWithCorrelationId(msgType HandlerMessage_Type, data proto.Message, corrId string, handlerId string) (*HandlerMessage, string, error) {
+	bytes, err := proto.Marshal(data)
 
 	if err != nil {
-		return nil,"",err
+		return nil, "", err
 	}
 
 	hd := HandlerMessage{
 		Type:          msgType,
 		CorrelationId: corrId,
 		Content:       bytes,
+		HandlerId:     handlerId,
 	}
-	return &hd,corrId,nil
+	return &hd, corrId, nil
 }
 
-func CreateHandlerMessage(msgType HandlerMessage_Type, data proto.Message) (*HandlerMessage, string , error){
-	return CreateHandlerMessageWithCorrelationId(msgType,data,GenerateId())
+func CreateHandlerMessage(msgType HandlerMessage_Type, data proto.Message, handlerId string) (*HandlerMessage, string, error) {
+	return CreateHandlerMessageWithCorrelationId(msgType, data, GenerateId(), handlerId)
 }
 
-
-func UnmarshallSignMessage(data []byte) (*HandlerMessage , error){
+func UnmarshallSignMessage(data []byte) (*HandlerMessage, error) {
 	msg := HandlerMessage{}
 
-	err := proto.Unmarshal(data,&msg)
+	err := proto.Unmarshal(data, &msg)
 
-	return &msg,err
+	return &msg, err
 }

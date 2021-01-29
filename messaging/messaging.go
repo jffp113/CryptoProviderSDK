@@ -30,8 +30,6 @@ func GenerateId() string {
 	return fmt.Sprint(uuid.NewV4())
 }
 
-
-
 type Connection interface {
 	SendData(id string, data []byte) error
 	RecvData() (string, []byte, error)
@@ -49,7 +47,6 @@ type ZmqConnection struct {
 	socket   *zmq.Socket
 	context  *zmq.Context
 }
-
 
 // NewConnection establishes a new connection using the given ZMQ context and
 // socket type to the given URI.
@@ -98,7 +95,6 @@ func (self *ZmqConnection) SendData(id string, data []byte) error {
 
 	return nil
 }
-
 
 // RecvData receives a ZMQ message from the wrapped socket and returns the
 // identity of the sender and the data sent. If ZmqConnection does not wrap a

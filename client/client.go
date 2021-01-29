@@ -1,8 +1,6 @@
 package client
 
 import (
-	bytes2 "bytes"
-	"encoding/json"
 	"github.com/golang/protobuf/proto"
 	"github.com/ipfs/go-log"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
@@ -14,84 +12,54 @@ import (
 var logger = log.Logger("crypto_client")
 
 const RegisterChanSize = 5
-const InChanSize = 5
-const OutChanSize = 5
 
 type cryptoClient struct {
-	requests map[string]chan *pb.HandlerMessage
-	handlers map[string]string
-	registerHandlerChan chan msgWithCorrelation
-	inData chan msgWithCorrelation
-	outData chan msgWithCorrelationAndChan
-	conn *messaging.ZmqConnection
+	requests            map[string]string
+	handlers            map[string]string
+	registerHandlerChan chan *pb.HandlerMessage
+	conn                *messaging.ZmqConnection
+	clients             *messaging.ZmqConnection
+	context             *zmq.Context
 }
 
-
-type msgWithCorrelation struct {
-	msg *pb.HandlerMessage
-	corrId string
-}
-
-type msgWithCorrelationAndChan struct {
-	msgWithCorrelation
-	replyChan chan *pb.HandlerMessage
-}
-
-func NewCryptoFactory(uri string) (crypto.ContextFactory, error){
+func NewCryptoFactory(uri string) (crypto.ContextFactory, error) {
 	context, _ := zmq.NewContext()
 
 	conn, err := messaging.NewConnection(context, zmq.ROUTER, uri, true)
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	workers, err := messaging.NewConnection(context, zmq.ROUTER, "inproc://workers", true)
+	clients, err := messaging.NewConnection(context, zmq.ROUTER, "inproc://workers", true)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-
-
 
 	c := cryptoClient{
-		requests:            make(map[string]chan *pb.HandlerMessage),
+		requests:            make(map[string]string),
 		handlers:            make(map[string]string),
-		registerHandlerChan: make(chan msgWithCorrelation, RegisterChanSize),
-		inData:              make(chan msgWithCorrelation, InChanSize),
-		outData:             make(chan msgWithCorrelationAndChan, OutChanSize),
+		registerHandlerChan: make(chan *pb.HandlerMessage, RegisterChanSize),
 		conn:                conn,
+		clients:             clients,
+		context:             context,
 	}
 
-	go c.receive(workers)
-	go c.processInOut(context)
+	go c.receive()
 	go c.processNewHandlers()
-
-	/*go func(){
-		for{
-			time.Sleep(10*time.Second)
-			for _,v := range c.requests{
-				//fmt.Println(v)
-				if v != nil {
-					fmt.Println(len(v))
-				}
-			}
-		}
-	}()*/
 
 	return &c, nil
 }
 
-func (c *cryptoClient) Close() error{
+func (c *cryptoClient) Close() error {
 	c.conn.Close()
 	return nil
 }
 
-func (c *cryptoClient) receive(workers *messaging.ZmqConnection) {
-
-
+func (c *cryptoClient) receive() {
 	poller := zmq.NewPoller()
 
-	poller.Add(c.conn.Socket(),zmq.POLLIN)
-	poller.Add(workers.Socket(),zmq.POLLIN)
+	poller.Add(c.conn.Socket(), zmq.POLLIN)
+	poller.Add(c.clients.Socket(), zmq.POLLIN)
 
 	for {
 		polled, err := poller.Poll(-1)
@@ -102,158 +70,111 @@ func (c *cryptoClient) receive(workers *messaging.ZmqConnection) {
 		for _, ready := range polled {
 			switch socket := ready.Socket; socket {
 			case c.conn.Socket():
-				corrId,data, err := c.conn.RecvData()
-
-				if err != nil {
-					logger.Warnf("Error Ignoring MSG: %v",err)
-					continue
-				}
-
-				msg := pb.HandlerMessage{}
-
-				err = proto.Unmarshal(data,&msg)
-
-				if err != nil {
-					logger.Warnf("Error Ignoring MSG: %v",err)
-					continue
-				}
-
-				c.inData<-msgWithCorrelation{
-					msg:    &msg,
-					corrId: corrId,
-				}
-
-			case workers.Socket():
-				logger.Debug("Received data")
-				_,data, err := workers.RecvData()
-
-				msg := transfer{}
-
-				reader := bytes2.NewReader(data)
-				dec := json.NewDecoder(reader)
-				dec.Decode(&msg)
-
-
-
-				err = c.conn.SendData(msg.CorrId, msg.Data)
-				logger.Debug("Sent msg out to signer")
-				if err != nil {
-					logger.Warnf("Error out msg: %v",err)
-					continue
-				}
-
+				c.handleConnSocket()
+			case c.clients.Socket():
+				c.handleClientSocket()
 			}
 		}
 	}
 
-}
-
-type transfer struct {
-	Data []byte
-	CorrId string
-}
-
-func (c *cryptoClient) processInOut(context *zmq.Context) {
-	workers, err := messaging.NewConnection(context, zmq.DEALER, "inproc://workers", false)
-
-	if err != nil {
-		logger.Error("Error")
-		return
-	}
-
-	for{
-		select {
-		case data := <-c.inData:
-			if data.msg.Type == pb.HandlerMessage_HANDLER_REGISTER_REQUEST{
-				logger.Debug("Register msg received")
-				msgCorrId := msgWithCorrelation{
-					msg:  	data.msg,
-					corrId: data.corrId,
-				}
-				c.registerHandlerChan<-msgCorrId
-			} else {
-				logger.Debug("Received msg")
-				v,present := c.requests[data.msg.CorrelationId]
-				if !present {
-					logger.Warnf("MSG not expected, ignoring MSG")
-					continue
-				}
-				v<-data.msg
-				delete(c.requests, data.msg.CorrelationId)
-			}
-		case data := <-c.outData:
-			logger.Debug("Sending msg out")
-
-
-			bytes,err := proto.Marshal(data.msg)
-
-			if err != nil {
-				logger.Warnf("Error out msg: %v",err)
-				continue
-			}
-
-			tr := transfer{
-				Data:   bytes,
-				CorrId: data.corrId,
-			}
-
-			var buffer bytes2.Buffer
-			enc := json.NewEncoder(&buffer)
-
-			enc.Encode(&tr)
-
-			logger.Debug(data)
-			c.requests[data.msg.CorrelationId] = data.replyChan
-
-
-			err = workers.SendData("", buffer.Bytes())
-			logger.Debug("Sent msg out")
-			if err != nil {
-				logger.Warnf("Error out msg: %v",err)
-				continue
-			}
-		}
-
-	}
 }
 
 func (c *cryptoClient) processNewHandlers() {
+	worker, err := messaging.NewConnection(c.context, zmq.DEALER, "inproc://workers", false)
+
+	if err != nil {
+		panic(err)
+	}
+
 	for newMsg := range c.registerHandlerChan {
 		req := pb.HandlerRegisterRequest{}
 
-		err := proto.Unmarshal(newMsg.msg.Content,&req)
+		err := proto.Unmarshal(newMsg.Content, &req)
 
 		if err != nil {
-			logger.Warnf("Error Ignoring register handler MSG: %v",err)
+			logger.Warnf("Error Ignoring register handler MSG: %v", err)
 			continue
 		}
-		logger.Debugf("Registering %v from %v",req.Scheme,newMsg.corrId)
+		logger.Debugf("Registering %v from %v", req.Scheme, newMsg.HandlerId)
 
-		c.handlers[req.Scheme] = newMsg.corrId
+		c.handlers[req.Scheme] = newMsg.HandlerId
 
 		rep := pb.HandlerRegisterResponse{Status: pb.HandlerRegisterResponse_OK}
 
-
-		handlerMsg,_,err:= pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_HANDLER_REGISTER_RESPONSE,
-												&rep,newMsg.msg.CorrelationId)
+		handlerMsg, _, err := pb.CreateHandlerMessageWithCorrelationId(pb.HandlerMessage_HANDLER_REGISTER_RESPONSE,
+			&rep, newMsg.CorrelationId, newMsg.HandlerId)
 
 		if err != nil {
-			logger.Warnf("Error Ignoring register handler MSG: %v",err)
+			logger.Warnf("Error Ignoring register handler MSG: %v", err)
 			continue
 		}
 
-		c.outData<-msgWithCorrelationAndChan{
-			msgWithCorrelation: msgWithCorrelation{
-				msg:    handlerMsg,
-				corrId: newMsg.corrId,
-			},
-			replyChan:          nil,
-		}
+		data, err := proto.Marshal(handlerMsg)
 
+		worker.SendData("", data)
 
 	}
 }
 
+func (c *cryptoClient) handleConnSocket() {
+	handlerId, data, err := c.conn.RecvData()
 
+	if err != nil {
+		logger.Warnf("Error Ignoring MSG: %v", err)
+		return
+	}
 
+	msg := pb.HandlerMessage{}
 
+	err = proto.Unmarshal(data, &msg)
+
+	if err != nil {
+		logger.Warnf("Error Ignoring MSG: %v", err)
+		return
+	}
+
+	if msg.Type == pb.HandlerMessage_HANDLER_REGISTER_REQUEST {
+		logger.Debug("Register Handler MSG received")
+		msg.HandlerId = handlerId
+		c.registerHandlerChan <- &msg
+	} else {
+		logger.Debug("Received response from a handler")
+		v, present := c.requests[msg.CorrelationId]
+		if !present {
+			logger.Warnf("MSG not expected, ignoring MSG")
+			return
+		}
+
+		err := c.clients.SendData(v, data)
+		if err != nil {
+			logger.Error("Error Sending the message")
+			return
+		}
+
+		delete(c.requests, msg.CorrelationId)
+	}
+}
+
+func (c *cryptoClient) handleClientSocket() {
+	logger.Debug("Received data")
+
+	clientId, data, err := c.clients.RecvData()
+
+	handlerMsg := pb.HandlerMessage{}
+	err = proto.Unmarshal(data, &handlerMsg)
+
+	if err != nil {
+		logger.Error("Error sending out: %v", err)
+		return
+	}
+
+	c.requests[handlerMsg.CorrelationId] = clientId
+
+	err = c.conn.SendData(handlerMsg.HandlerId, data)
+	logger.Debug("Sent msg out to signer")
+
+	if err != nil {
+		logger.Warnf("Error retransmitting message", err)
+	}
+
+}

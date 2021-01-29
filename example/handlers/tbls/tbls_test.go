@@ -30,7 +30,7 @@ func tblsSuccessSignature(n, t int, test *testing.T) {
 		sigShares = append(sigShares, s)
 	}
 
-	sig, err := tbls.Aggregate(sigShares, msg, pub,t,n)
+	sig, err := tbls.Aggregate(sigShares, msg, pub, t, n)
 
 	require.Nil(test, err)
 
@@ -56,7 +56,7 @@ func TestTBLSNotEnoughShares(test *testing.T) {
 		sigShares = append(sigShares, s)
 	}
 
-	_, err = tbls.Aggregate(sigShares, msg, pub,t,n)
+	_, err = tbls.Aggregate(sigShares, msg, pub, t, n)
 
 	require.NotNil(test, err)
 }
@@ -80,21 +80,20 @@ func tblsSuccessMarshallAndUnmarshallSignature(n, t int, test *testing.T) {
 	h := NewTBLS256CryptoHandler()
 	sigShares := make([][]byte, 0)
 	for _, x := range shares {
-		b,err := x.MarshalBinary()
+		b, err := x.MarshalBinary()
 		require.Nil(test, err)
 		x2 := h.UnmarshalPrivate(b)
-
 
 		s, err := tbls.Sign(msg, x2)
 		require.Nil(test, err)
 		sigShares = append(sigShares, s)
 	}
 
-	b,err := pub.MarshalBinary()
+	b, err := pub.MarshalBinary()
 	require.Nil(test, err)
 	pub2 := h.UnmarshalPublic(b)
 
-	sig, err := tbls.Aggregate(sigShares, msg, pub2,t,n)
+	sig, err := tbls.Aggregate(sigShares, msg, pub2, t, n)
 
 	require.Nil(test, err)
 
@@ -119,7 +118,7 @@ func TestTBLSByzantineSignature(test *testing.T) {
 		var err error
 		if i == 2 {
 			s, err = tbls.Sign([]byte("Byzantine"), x)
-		}else{
+		} else {
 			s, err = tbls.Sign(msg, x)
 		}
 
@@ -127,8 +126,7 @@ func TestTBLSByzantineSignature(test *testing.T) {
 		sigShares = append(sigShares, s)
 	}
 
-	_, err = tbls.Aggregate(sigShares, msg, pub,t,n)
+	_, err = tbls.Aggregate(sigShares, msg, pub, t, n)
 
 	require.NotNil(test, err)
 }
-
