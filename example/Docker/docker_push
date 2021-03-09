@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Log into Azure
+az login --service-principal --username $AZURE_SP_USERNAME --password $AZURE_SP_PASSWORD --tenant $AZURE_SP_TENANT
+
+# Docker log into Azure Container Registry
+az acr login --name $ACR_NAME
+
+# Push container Azure Container Registry
+docker push $ACR_NAME.azurecr.io/$DOCKER_IMAGE_NAME:$TRAVIS_COMMIT
