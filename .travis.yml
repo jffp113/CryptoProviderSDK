@@ -1,0 +1,17 @@
+language: go
+
+
+services:
+  - docker
+
+
+install:
+  - export DOCKER_FULL_IMAGE_NAME=${ACR_NAME}.azurecr.io/${DOCKER_IMAGE_NAME}:latest
+  - docker build -t $DOCKER_FULL_IMAGE_NAME -f ./example/Docker/Dockerfile .
+
+
+deploy:
+  provider: script
+  on:
+    branch: master
+  script: bash ./example/Docker/docker_push
