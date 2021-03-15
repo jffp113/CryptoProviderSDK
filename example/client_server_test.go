@@ -19,6 +19,7 @@ var context, err = client.NewCryptoFactory(URI)
 func TestTBLSClientServer(test *testing.T) {
 	_ = log.SetLogLevel("crypto_client", "debug")
 	_ = log.SetLogLevel("signer_processor", "debug")
+	_ = log.SetLogLevel("handler_processor", "debug")
 
 	require.Nil(test, err)
 

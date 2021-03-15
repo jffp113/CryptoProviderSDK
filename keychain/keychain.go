@@ -88,3 +88,11 @@ func (k *keychain) storeKey(name string, key encoding.BinaryMarshaler) error {
 
 	return err
 }
+
+func ConvertBytesToPubKey(bytes []byte) crypto.PublicKey {
+	return key(bytes)
+}
+
+func ConvertBytesToPrivKey(bytes []byte) crypto.PrivateKey {
+	return key(bytes)
+}
