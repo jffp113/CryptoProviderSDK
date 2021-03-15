@@ -4,6 +4,18 @@ option java_package = "sawtooth.sdk.protobuf";
 option go_package = "pb";
 
 
+enum Type {
+  DEFAULT = 0;
+  SIGN_REQUEST = 100;
+  SIGN_RESPONSE = 101;
+  VERIFY_REQUEST = 200;
+  VERIFY_RESPONSE = 201;
+  AGGREGATE_REQUEST = 300;
+  AGGREGATE_RESPONSE = 301;
+  GENERATE_THS_REQUEST = 400;
+  GENERATE_THS_RESPONSE = 401;
+}
+
 message GenerateTHSRequest {
 
   string scheme = 1;

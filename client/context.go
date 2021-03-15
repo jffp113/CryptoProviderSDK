@@ -5,15 +5,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
 	"github.com/jffp113/CryptoProviderSDK/crypto/pb"
-	"github.com/jffp113/CryptoProviderSDK/messaging"
-	zmq "github.com/pebbe/zmq4"
+	"github.com/jffp113/go-util/messaging/routerdealerhandlers/handlerClient"
 	"io"
 )
 
 type context struct {
-	scheme string
 	client *cryptoClient
-	worker *messaging.ZmqConnection
+	scheme string
+	context handlerClient.Invoker
 }
 
 type key []byte
@@ -23,29 +22,19 @@ func (key key) MarshalBinary() (data []byte, err error) {
 }
 
 func (c *cryptoClient) GetSignerVerifierAggregator(cryptoId string) (crypto.SignerVerifierAggregator, io.Closer) {
-	worker, err := messaging.NewConnection(c.context, zmq.DEALER, "inproc://workers", false)
+	invoker, closer := c.client.GetContext(cryptoId)
 
-	if err != nil {
-		panic(err)
-	}
-
-	r := context{cryptoId, c, worker}
-	return &r, &r
+	return &context{c,cryptoId,invoker}, closer
 }
 
 func (c *cryptoClient) GetKeyGenerator(cryptoId string) (crypto.KeyShareGenerator, io.Closer) {
-	worker, err := messaging.NewConnection(c.context, zmq.DEALER, "inproc://workers", false)
+	invoker, closer := c.client.GetContext(cryptoId)
 
-	if err != nil {
-		panic(err)
-	}
-	r := context{cryptoId, c, worker}
-	return &r, &r
+	return &context{c,cryptoId,invoker}, closer
 }
 
 func (c *context) Sign(digest []byte, key crypto.PrivateKey) (signature []byte, err error) {
 	logger.Debugf("Sign Key for %v", c.scheme)
-	handlerId := c.client.handlers[c.scheme]
 
 	d, _ := key.MarshalBinary()
 
@@ -54,16 +43,20 @@ func (c *context) Sign(digest []byte, key crypto.PrivateKey) (signature []byte, 
 		Digest:      digest,
 		PrivateKeys: d,
 	}
-	msg, _, _ := pb.CreateHandlerMessage(pb.HandlerMessage_SIGN_REQUEST, &req, handlerId)
 
-	reply, err := c.sendHandlerMessageAndReceiveResponse(msg)
+	b,err := proto.Marshal(&req)
+	if err != nil {
+		return nil, err
+	}
+
+	content,_,err := c.context.Invoke(b,int32(pb.Type_SIGN_REQUEST))
 
 	if err != nil {
 		return nil, err
 	}
 
 	replySign := pb.SignResponse{}
-	err = proto.Unmarshal(reply.Content, &replySign)
+	err = proto.Unmarshal(content, &replySign)
 
 	if err != nil {
 		return nil, err
@@ -80,27 +73,28 @@ func (c *context) Sign(digest []byte, key crypto.PrivateKey) (signature []byte, 
 func (c *context) Verify(signature []byte, msg []byte, key crypto.PublicKey) error {
 	logger.Debugf("Verify Request for %v", c.scheme)
 
-	handlerId := c.client.handlers[c.scheme]
-
 	keyBytes, _ := key.MarshalBinary()
 
-	request := pb.VerifyRequest{
+	req := pb.VerifyRequest{
 		Scheme:    c.scheme,
 		Signature: signature,
 		Msg:       msg,
 		PubKey:    keyBytes,
 	}
 
-	requestMsg, _, _ := pb.CreateHandlerMessage(pb.HandlerMessage_VERIFY_REQUEST, &request, handlerId)
+	b,err := proto.Marshal(&req)
+	if err != nil {
+		return nil
+	}
 
-	reply, err := c.sendHandlerMessageAndReceiveResponse(requestMsg)
+	content,_,err := c.context.Invoke(b,int32(pb.Type_VERIFY_REQUEST))
 
 	if err != nil {
-		return err
+		return nil
 	}
 
 	replySign := pb.VerifyResponse{}
-	_ = proto.Unmarshal(reply.Content, &replySign)
+	_ = proto.Unmarshal(content, &replySign)
 
 	if replySign.Status == pb.VerifyResponse_ERROR {
 		return errors.New("invalid signature")
@@ -111,8 +105,6 @@ func (c *context) Verify(signature []byte, msg []byte, key crypto.PublicKey) err
 
 func (c *context) Aggregate(share [][]byte, digest []byte, key crypto.PublicKey, t, n int) (signature []byte, err error) {
 	logger.Debugf("Aggregating Request for %v", c.scheme)
-
-	handlerId := c.client.handlers[c.scheme]
 
 	keyBytes, _ := key.MarshalBinary()
 
@@ -125,15 +117,19 @@ func (c *context) Aggregate(share [][]byte, digest []byte, key crypto.PublicKey,
 		N:      int32(n),
 	}
 
-	msg, _, _ := pb.CreateHandlerMessage(pb.HandlerMessage_AGGREGATE_REQUEST, &req, handlerId)
+	b,err := proto.Marshal(&req)
+	if err != nil {
+		return nil, nil
+	}
 
-	reply, err := c.sendHandlerMessageAndReceiveResponse(msg)
+	content,_,err := c.context.Invoke(b,int32(pb.Type_AGGREGATE_REQUEST))
+
 	if err != nil {
 		return nil, err
 	}
 
 	replySign := pb.AggregateResponse{}
-	err = proto.Unmarshal(reply.Content, &replySign)
+	err = proto.Unmarshal(content, &replySign)
 
 	if replySign.Status == pb.AggregateResponse_ERROR {
 		return nil, errors.New("error aggregating")
@@ -144,7 +140,6 @@ func (c *context) Aggregate(share [][]byte, digest []byte, key crypto.PublicKey,
 
 func (c *context) Gen(n int, t int) (crypto.PublicKey, crypto.PrivateKeyList) {
 	logger.Debugf("Requesting Key Gen for %v", c.scheme)
-	handlerId := c.client.handlers[c.scheme]
 
 	req := pb.GenerateTHSRequest{
 		Scheme: c.scheme,
@@ -152,20 +147,24 @@ func (c *context) Gen(n int, t int) (crypto.PublicKey, crypto.PrivateKeyList) {
 		N:      uint32(n),
 	}
 
-	msg, _, _ := pb.CreateHandlerMessage(pb.HandlerMessage_GENERATE_THS_REQUEST, &req, handlerId)
-
-	reply, err := c.sendHandlerMessageAndReceiveResponse(msg)
+	b,err := proto.Marshal(&req)
 	if err != nil {
-		panic("error requesting sig generation")
+		return nil, nil
 	}
 
-	if reply.Type != pb.HandlerMessage_GENERATE_THS_RESPONSE {
+	content,respType,err := c.context.Invoke(b,int32(pb.Type_GENERATE_THS_REQUEST))
+
+	if err != nil {
+		return nil, nil
+	}
+
+	if respType != int32(pb.Type_GENERATE_THS_RESPONSE) {
 		panic("Wrong message received")
 	}
 
 	replyTHS := pb.GenerateTHSResponse{}
 
-	err = proto.Unmarshal(reply.Content, &replyTHS)
+	err = proto.Unmarshal(content, &replyTHS)
 
 	if err != nil {
 		panic("error unmarshalling msg")
@@ -182,34 +181,6 @@ func (c *context) Gen(n int, t int) (crypto.PublicKey, crypto.PrivateKeyList) {
 }
 
 func (c *context) Close() error {
-	c.worker.Close()
+	//TODO
 	return nil
-}
-
-func (c *context) sendHandlerMessageAndReceiveResponse(msg *pb.HandlerMessage) (*pb.HandlerMessage, error) {
-	data, err := proto.Marshal(msg)
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.worker.SendData("", data)
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, recvData, err := c.worker.RecvData()
-
-	if err != nil {
-		return nil, err
-	}
-
-	reply, err := pb.UnmarshallSignMessage(recvData)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return reply, nil
 }

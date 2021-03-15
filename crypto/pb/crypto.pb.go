@@ -25,6 +25,73 @@ const (
 // of the legacy proto package is being used.
 const _ = proto.ProtoPackageIsVersion4
 
+type Type int32
+
+const (
+	Type_DEFAULT               Type = 0
+	Type_SIGN_REQUEST          Type = 100
+	Type_SIGN_RESPONSE         Type = 101
+	Type_VERIFY_REQUEST        Type = 200
+	Type_VERIFY_RESPONSE       Type = 201
+	Type_AGGREGATE_REQUEST     Type = 300
+	Type_AGGREGATE_RESPONSE    Type = 301
+	Type_GENERATE_THS_REQUEST  Type = 400
+	Type_GENERATE_THS_RESPONSE Type = 401
+)
+
+// Enum value maps for Type.
+var (
+	Type_name = map[int32]string{
+		0:   "DEFAULT",
+		100: "SIGN_REQUEST",
+		101: "SIGN_RESPONSE",
+		200: "VERIFY_REQUEST",
+		201: "VERIFY_RESPONSE",
+		300: "AGGREGATE_REQUEST",
+		301: "AGGREGATE_RESPONSE",
+		400: "GENERATE_THS_REQUEST",
+		401: "GENERATE_THS_RESPONSE",
+	}
+	Type_value = map[string]int32{
+		"DEFAULT":               0,
+		"SIGN_REQUEST":          100,
+		"SIGN_RESPONSE":         101,
+		"VERIFY_REQUEST":        200,
+		"VERIFY_RESPONSE":       201,
+		"AGGREGATE_REQUEST":     300,
+		"AGGREGATE_RESPONSE":    301,
+		"GENERATE_THS_REQUEST":  400,
+		"GENERATE_THS_RESPONSE": 401,
+	}
+)
+
+func (x Type) Enum() *Type {
+	p := new(Type)
+	*p = x
+	return p
+}
+
+func (x Type) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Type) Descriptor() protoreflect.EnumDescriptor {
+	return file_crypto_proto_enumTypes[0].Descriptor()
+}
+
+func (Type) Type() protoreflect.EnumType {
+	return &file_crypto_proto_enumTypes[0]
+}
+
+func (x Type) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Type.Descriptor instead.
+func (Type) EnumDescriptor() ([]byte, []int) {
+	return file_crypto_proto_rawDescGZIP(), []int{0}
+}
+
 type GenerateTHSResponse_Status int32
 
 const (
@@ -58,11 +125,11 @@ func (x GenerateTHSResponse_Status) String() string {
 }
 
 func (GenerateTHSResponse_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_crypto_proto_enumTypes[0].Descriptor()
+	return file_crypto_proto_enumTypes[1].Descriptor()
 }
 
 func (GenerateTHSResponse_Status) Type() protoreflect.EnumType {
-	return &file_crypto_proto_enumTypes[0]
+	return &file_crypto_proto_enumTypes[1]
 }
 
 func (x GenerateTHSResponse_Status) Number() protoreflect.EnumNumber {
@@ -107,11 +174,11 @@ func (x SignResponse_Status) String() string {
 }
 
 func (SignResponse_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_crypto_proto_enumTypes[1].Descriptor()
+	return file_crypto_proto_enumTypes[2].Descriptor()
 }
 
 func (SignResponse_Status) Type() protoreflect.EnumType {
-	return &file_crypto_proto_enumTypes[1]
+	return &file_crypto_proto_enumTypes[2]
 }
 
 func (x SignResponse_Status) Number() protoreflect.EnumNumber {
@@ -156,11 +223,11 @@ func (x VerifyResponse_Status) String() string {
 }
 
 func (VerifyResponse_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_crypto_proto_enumTypes[2].Descriptor()
+	return file_crypto_proto_enumTypes[3].Descriptor()
 }
 
 func (VerifyResponse_Status) Type() protoreflect.EnumType {
-	return &file_crypto_proto_enumTypes[2]
+	return &file_crypto_proto_enumTypes[3]
 }
 
 func (x VerifyResponse_Status) Number() protoreflect.EnumNumber {
@@ -205,11 +272,11 @@ func (x AggregateResponse_Status) String() string {
 }
 
 func (AggregateResponse_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_crypto_proto_enumTypes[3].Descriptor()
+	return file_crypto_proto_enumTypes[4].Descriptor()
 }
 
 func (AggregateResponse_Status) Type() protoreflect.EnumType {
-	return &file_crypto_proto_enumTypes[3]
+	return &file_crypto_proto_enumTypes[4]
 }
 
 func (x AggregateResponse_Status) Number() protoreflect.EnumNumber {
@@ -792,9 +859,22 @@ var file_crypto_proto_rawDesc = []byte{
 	0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x22, 0x2d, 0x0a, 0x06, 0x53, 0x74, 0x61,
 	0x74, 0x75, 0x73, 0x12, 0x10, 0x0a, 0x0c, 0x53, 0x54, 0x41, 0x54, 0x55, 0x53, 0x5f, 0x55, 0x4e,
 	0x53, 0x45, 0x54, 0x10, 0x00, 0x12, 0x06, 0x0a, 0x02, 0x4f, 0x4b, 0x10, 0x01, 0x12, 0x09, 0x0a,
-	0x05, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x02, 0x42, 0x1d, 0x0a, 0x15, 0x73, 0x61, 0x77, 0x74,
-	0x6f, 0x6f, 0x74, 0x68, 0x2e, 0x73, 0x64, 0x6b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75,
-	0x66, 0x50, 0x01, 0x5a, 0x02, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x05, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x02, 0x2a, 0xcb, 0x01, 0x0a, 0x04, 0x54, 0x79, 0x70,
+	0x65, 0x12, 0x0b, 0x0a, 0x07, 0x44, 0x45, 0x46, 0x41, 0x55, 0x4c, 0x54, 0x10, 0x00, 0x12, 0x10,
+	0x0a, 0x0c, 0x53, 0x49, 0x47, 0x4e, 0x5f, 0x52, 0x45, 0x51, 0x55, 0x45, 0x53, 0x54, 0x10, 0x64,
+	0x12, 0x11, 0x0a, 0x0d, 0x53, 0x49, 0x47, 0x4e, 0x5f, 0x52, 0x45, 0x53, 0x50, 0x4f, 0x4e, 0x53,
+	0x45, 0x10, 0x65, 0x12, 0x13, 0x0a, 0x0e, 0x56, 0x45, 0x52, 0x49, 0x46, 0x59, 0x5f, 0x52, 0x45,
+	0x51, 0x55, 0x45, 0x53, 0x54, 0x10, 0xc8, 0x01, 0x12, 0x14, 0x0a, 0x0f, 0x56, 0x45, 0x52, 0x49,
+	0x46, 0x59, 0x5f, 0x52, 0x45, 0x53, 0x50, 0x4f, 0x4e, 0x53, 0x45, 0x10, 0xc9, 0x01, 0x12, 0x16,
+	0x0a, 0x11, 0x41, 0x47, 0x47, 0x52, 0x45, 0x47, 0x41, 0x54, 0x45, 0x5f, 0x52, 0x45, 0x51, 0x55,
+	0x45, 0x53, 0x54, 0x10, 0xac, 0x02, 0x12, 0x17, 0x0a, 0x12, 0x41, 0x47, 0x47, 0x52, 0x45, 0x47,
+	0x41, 0x54, 0x45, 0x5f, 0x52, 0x45, 0x53, 0x50, 0x4f, 0x4e, 0x53, 0x45, 0x10, 0xad, 0x02, 0x12,
+	0x19, 0x0a, 0x14, 0x47, 0x45, 0x4e, 0x45, 0x52, 0x41, 0x54, 0x45, 0x5f, 0x54, 0x48, 0x53, 0x5f,
+	0x52, 0x45, 0x51, 0x55, 0x45, 0x53, 0x54, 0x10, 0x90, 0x03, 0x12, 0x1a, 0x0a, 0x15, 0x47, 0x45,
+	0x4e, 0x45, 0x52, 0x41, 0x54, 0x45, 0x5f, 0x54, 0x48, 0x53, 0x5f, 0x52, 0x45, 0x53, 0x50, 0x4f,
+	0x4e, 0x53, 0x45, 0x10, 0x91, 0x03, 0x42, 0x1d, 0x0a, 0x15, 0x73, 0x61, 0x77, 0x74, 0x6f, 0x6f,
+	0x74, 0x68, 0x2e, 0x73, 0x64, 0x6b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x50,
+	0x01, 0x5a, 0x02, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -809,27 +889,28 @@ func file_crypto_proto_rawDescGZIP() []byte {
 	return file_crypto_proto_rawDescData
 }
 
-var file_crypto_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_crypto_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
 var file_crypto_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_crypto_proto_goTypes = []interface{}{
-	(GenerateTHSResponse_Status)(0), // 0: GenerateTHSResponse.Status
-	(SignResponse_Status)(0),        // 1: SignResponse.Status
-	(VerifyResponse_Status)(0),      // 2: VerifyResponse.Status
-	(AggregateResponse_Status)(0),   // 3: AggregateResponse.Status
-	(*GenerateTHSRequest)(nil),      // 4: GenerateTHSRequest
-	(*GenerateTHSResponse)(nil),     // 5: GenerateTHSResponse
-	(*SignRequest)(nil),             // 6: SignRequest
-	(*SignResponse)(nil),            // 7: SignResponse
-	(*VerifyRequest)(nil),           // 8: VerifyRequest
-	(*VerifyResponse)(nil),          // 9: VerifyResponse
-	(*AggregateRequest)(nil),        // 10: AggregateRequest
-	(*AggregateResponse)(nil),       // 11: AggregateResponse
+	(Type)(0),                       // 0: Type
+	(GenerateTHSResponse_Status)(0), // 1: GenerateTHSResponse.Status
+	(SignResponse_Status)(0),        // 2: SignResponse.Status
+	(VerifyResponse_Status)(0),      // 3: VerifyResponse.Status
+	(AggregateResponse_Status)(0),   // 4: AggregateResponse.Status
+	(*GenerateTHSRequest)(nil),      // 5: GenerateTHSRequest
+	(*GenerateTHSResponse)(nil),     // 6: GenerateTHSResponse
+	(*SignRequest)(nil),             // 7: SignRequest
+	(*SignResponse)(nil),            // 8: SignResponse
+	(*VerifyRequest)(nil),           // 9: VerifyRequest
+	(*VerifyResponse)(nil),          // 10: VerifyResponse
+	(*AggregateRequest)(nil),        // 11: AggregateRequest
+	(*AggregateResponse)(nil),       // 12: AggregateResponse
 }
 var file_crypto_proto_depIdxs = []int32{
-	0, // 0: GenerateTHSResponse.status:type_name -> GenerateTHSResponse.Status
-	1, // 1: SignResponse.status:type_name -> SignResponse.Status
-	2, // 2: VerifyResponse.status:type_name -> VerifyResponse.Status
-	3, // 3: AggregateResponse.status:type_name -> AggregateResponse.Status
+	1, // 0: GenerateTHSResponse.status:type_name -> GenerateTHSResponse.Status
+	2, // 1: SignResponse.status:type_name -> SignResponse.Status
+	3, // 2: VerifyResponse.status:type_name -> VerifyResponse.Status
+	4, // 3: AggregateResponse.status:type_name -> AggregateResponse.Status
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
@@ -945,7 +1026,7 @@ func file_crypto_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_crypto_proto_rawDesc,
-			NumEnums:      4,
+			NumEnums:      5,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
