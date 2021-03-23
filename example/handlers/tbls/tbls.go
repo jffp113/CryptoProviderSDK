@@ -18,14 +18,13 @@ var (
 	privateKeyError = errors.New("invalid private key")
 )
 
-type tbls struct {
-	suite pairing.Suite
-}
-
 type privKey struct {
 	priv *share.PriShare
 }
 
+type pubKey struct {
+	pub *share.PubPoly
+}
 func (priv privKey) MarshalBinary() (data []byte, err error) {
 	var buffer bytes.Buffer
 
@@ -34,15 +33,6 @@ func (priv privKey) MarshalBinary() (data []byte, err error) {
 	err = suite.Write(&buffer, priv.priv)
 
 	return buffer.Bytes(), err
-}
-
-type pubKey struct {
-	pub *share.PubPoly
-}
-
-type tmpPubPoly struct {
-	B       kyber.Point   // Base point, nil for standard base
-	Commits []kyber.Point // Commitments to coefficients of the secret sharing polynomial
 }
 
 func (pub pubKey) MarshalBinary() (data []byte, err error) {
@@ -59,6 +49,14 @@ func (pub pubKey) MarshalBinary() (data []byte, err error) {
 
 	return buffer.Bytes(), err
 }
+
+type AggregateTBLS func(suite pairing.Suite, public *share.PubPoly, msg []byte, sigs [][]byte, t, n int) ([]byte, error)
+type tbls struct {
+	suite pairing.Suite
+	recover AggregateTBLS
+}
+
+
 
 func (t *tbls) Sign(digest []byte, key crypto.PrivateKey) ([]byte, error) {
 	priv, ok := key.(privKey)
@@ -87,13 +85,8 @@ func (tbls *tbls) Aggregate(shares [][]byte, digest []byte, key crypto.PublicKey
 		return nil, privateKeyError
 	}
 
-	return ths.Recover(tbls.suite, pub.pub, digest, shares, t, n)
-}
-
-func NewTBLS256() crypto.SignerVerifierAggregator {
-	return &tbls{
-		bn256.NewSuite(),
-	}
+	//return ths.Recover(tbls.suite, pub.pub, digest, shares, t, n)
+	return tbls.recover(tbls.suite, pub.pub, digest, shares, t, n)
 }
 
 type tblsKeyGenerator struct {
@@ -121,12 +114,13 @@ func NewTBLS256KeyGenerator() crypto.KeyShareGenerator {
 }
 
 type tblsHandler struct {
-	*tbls
-	*tblsKeyGenerator
+	crypto.SignerVerifierAggregator
+	crypto.KeyShareGenerator
+	schemeName string
 }
 
 func (tbls tblsHandler) SchemeName() string {
-	return "TBLS256"
+	return tbls.schemeName
 }
 
 func (tbls tblsHandler) UnmarshalPublic(data []byte) crypto.PublicKey {
@@ -158,10 +152,4 @@ func (tbls tblsHandler) UnmarshalPrivate(data []byte) crypto.PrivateKey {
 	_ = suite.Read(reader, &privShare)
 
 	return privKey{&privShare}
-}
-
-func NewTBLS256CryptoHandler() crypto.THSignerHandler {
-	suite := bn256.NewSuite()
-	return tblsHandler{&tbls{suite},
-		&tblsKeyGenerator{suite}}
 }

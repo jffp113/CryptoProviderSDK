@@ -17,7 +17,10 @@ var (
 
 const HashType = go_crypto.SHA256
 
+type AggregateTRSA func(sigShares tcrsa.SigShareList,digest []byte,pub pubKey, t, n int) (signature []byte, err error)
 type trsa struct {
+	aggregate AggregateTRSA
+	scheme string
 }
 
 type signatureShare struct {
@@ -94,9 +97,26 @@ func (self trsa) Aggregate(share [][]byte, digest []byte, key crypto.PublicKey, 
 		s = append(s, unmarshalled.SigShare)
 	}
 
-	docHash := sha256.Sum256(digest)
-	docPKCS1, err := tcrsa.PrepareDocumentHash(pub.Meta.PublicKey.Size(), HashType, docHash[:])
-	return s.Join(docPKCS1, pub.Meta)
+
+	return self.aggregate(s,digest, pub,t,n)
+}
+
+func getValidShares(sigShares tcrsa.SigShareList,docPKCS1 []byte, pub pubKey) tcrsa.SigShareList{
+	valid := make(tcrsa.SigShareList, 0)
+	for i := 0; i < len(sigShares); i++ {
+		if sigShares[i] == nil {
+			continue
+		}
+
+		if err := sigShares[i].Verify(docPKCS1, pub.Meta); err != nil {
+			continue
+		}
+
+		valid = append(valid,sigShares[i])
+
+	}
+
+	return valid
 }
 
 func (self trsa) Gen(n int, t int) (crypto.PublicKey, crypto.PrivateKeyList) {
@@ -121,7 +141,7 @@ func (self trsa) Gen(n int, t int) (crypto.PublicKey, crypto.PrivateKeyList) {
 }
 
 func (self trsa) SchemeName() string {
-	return "TRSA"
+	return self.scheme
 }
 
 func (self trsa) UnmarshalPublic(data []byte) crypto.PublicKey {
@@ -140,14 +160,6 @@ func NewTRSAKeyGenerator() crypto.KeyShareGenerator {
 	return &trsa{}
 }
 
-func NewTRSA() crypto.SignerVerifierAggregator {
-	return &trsa{}
-}
-
-func NewTRSACryptoHandler() crypto.THSignerHandler {
-	return &trsa{}
-}
-
 func marshallToJSON(v interface{}) ([]byte, error) {
 	var buffer bytes.Buffer         // Stand-in for a network connection
 	enc := json.NewEncoder(&buffer) // Will write to network.
@@ -159,7 +171,4 @@ func unmarshallFromJson(data []byte, v interface{}) {
 	reader := bytes.NewReader(data)
 	dec := json.NewDecoder(reader)
 	dec.Decode(v)
-}
-
-func main() {
 }
