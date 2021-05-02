@@ -1,4 +1,4 @@
-package rsa
+package bls
 
 import (
 	"github.com/stretchr/testify/assert"

@@ -6,7 +6,6 @@ import (
 	ths "go.dedis.ch/kyber/v3/sign/tbls"
 )
 
-
 func NewTBLS256() crypto.SignerVerifierAggregator {
 	return &tbls{
 		bn256.NewSuite(),

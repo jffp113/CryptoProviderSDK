@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/pairing"
@@ -72,7 +73,7 @@ func (t *tbls) Verify(signature, msg []byte, key crypto.PublicKey) error {
 	pub, ok := key.(pubKey)
 
 	if !ok {
-		return privateKeyError
+		return errors.New(fmt.Sprintf("Error Unmarshalling public key: %v",privateKeyError))
 	}
 
 	return bls.Verify(t.suite, pub.pub.Commit(), msg, signature)

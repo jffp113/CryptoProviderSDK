@@ -36,25 +36,28 @@ func main() {
 		fmt.Printf("Error: Unrecognized arguments passed: %v\n", remaining)
 		os.Exit(2)
 	}
-	keyName := fmt.Sprintf("%v_%v_%v", opts.Scheme, opts.N, opts.T)
+
 
 	keygen := getKeyGen(opts.Scheme)
 
 	pub, priv := keygen.Gen(opts.N, opts.T)
 
-	for i := 1; i <= opts.N; i++ {
-		path := fmt.Sprintf("%v/%v/", opts.GenPath, i)
-		os.MkdirAll(path, os.ModePerm)
-		keychain := keychain.NewKeyChain(path)
-		err := keychain.StorePublicKey(keyName, pub)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		err = keychain.StorePrivateKey(keyName, priv[i-1])
-		if err != nil {
-			fmt.Println(err)
-			return
+	for _,schemeParam := range []string{"","Optimistic","Pessimistic"} {
+		keyName := fmt.Sprintf("%v%v_%v_%v", opts.Scheme,schemeParam, opts.N, opts.T)
+		for i := 1; i <= opts.N; i++ {
+			path := fmt.Sprintf("%v/%v/", opts.GenPath, i)
+			os.MkdirAll(path, os.ModePerm)
+			keychain := keychain.NewKeyChain(path)
+			err := keychain.StorePublicKey(keyName, pub)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			err = keychain.StorePrivateKey(keyName, priv[i-1])
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 		}
 	}
 
@@ -65,7 +68,9 @@ func getKeyGen(scheme string) crypto.KeyShareGenerator {
 	case "TBLS256":
 		return tbls.NewTBLS256KeyGenerator()
 	case "TRSA1024":
-		return trsa.NewTRSAKeyGenerator()
+		return trsa.NewTRSAKeyGenerator(1024)
+	case "TRSA2048":
+		return trsa.NewTRSAKeyGenerator(2048)
 	default:
 		return nil
 	}

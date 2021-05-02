@@ -2,11 +2,12 @@ package trsa
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
 	"github.com/niclabs/tcrsa"
 )
 
-const NormalScheme = "TRSA"
+const NormalScheme = "TRSA%v"
 
 func aggregateNormal(sigShares tcrsa.SigShareList,digest []byte,pub pubKey, t, n int) (signature []byte, err error) {
 	docHash := sha256.Sum256(digest)
@@ -16,18 +17,19 @@ func aggregateNormal(sigShares tcrsa.SigShareList,digest []byte,pub pubKey, t, n
 	return valid.Join(docPKCS1, pub.Meta)
 }
 
-
-func NewTRSA() crypto.SignerVerifierAggregator {
+func NewTRSA(size int) crypto.SignerVerifierAggregator {
 	return &trsa{
-		scheme: NormalScheme,
+		scheme: fmt.Sprintf(NormalScheme,size),
 		aggregate: aggregateNormal,
+		keySize: size,
 	}
 }
 
-func NewTRSACryptoHandler() crypto.THSignerHandler {
+func NewTRSACryptoHandler(size int) crypto.THSignerHandler {
 	return &trsa{
-		scheme: NormalScheme,
+		scheme: fmt.Sprintf(NormalScheme,size),
 		aggregate: aggregateNormal,
+		keySize: size,
 	}
 }
 

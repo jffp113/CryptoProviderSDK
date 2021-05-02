@@ -2,10 +2,12 @@ package main
 
 import (
 	"github.com/jffp113/CryptoProviderSDK/crypto"
+	"github.com/jffp113/CryptoProviderSDK/example/handlers/bls"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/rsa"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/tbls"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/trsa"
 	"github.com/stretchr/testify/assert"
+	"sync"
 	"testing"
 )
 
@@ -26,6 +28,9 @@ var resultPrivateKey crypto.PrivateKeyList
 var tbls256Priv crypto.PrivateKeyList
 var tbls256Pub crypto.PublicKey
 
+//BLS Material
+var bls256Priv crypto.PrivateKeyList
+var bls256Pub crypto.PublicKey
 
 //TRSA Material
 var trsa1024Priv crypto.PrivateKeyList
@@ -47,18 +52,25 @@ var rsa2048Pub crypto.PublicKey
 var rsa3072Priv crypto.PrivateKeyList
 var rsa3072Pub crypto.PublicKey
 
-func init() {
-	tbls256Pub,tbls256Priv = tbls.NewTBLS256KeyGenerator().Gen(N,T)
 
-	trsa1024Pub,trsa1024Priv = trsa.NewTRSAKeyGenerator(1024).Gen(N,T)
-	trsa2048Pub,trsa2048Priv = trsa.NewTRSAKeyGenerator(2048).Gen(N,T)
-	trsa3072Pub,trsa3072Priv = trsa.NewTRSAKeyGenerator(3072).Gen(N,T)
+var once sync.Once
 
-	rsa1024Pub,rsa1024Priv = rsa.NewRSAKeyGenerator(1024).Gen(N,T)
-	rsa2048Pub,rsa2048Priv = rsa.NewRSAKeyGenerator(2048).Gen(N,T)
-	rsa3072Pub,rsa3072Priv = rsa.NewRSAKeyGenerator(3072).Gen(N,T)
+func initTest() {
+	once.Do(func() {
+		tbls256Pub,tbls256Priv = tbls.NewTBLS256KeyGenerator().Gen(N,T)
 
+		bls256Pub,bls256Priv = bls.NewBLSKeyGenerator256().Gen(N,T)
+
+		trsa1024Pub,trsa1024Priv = trsa.NewTRSAKeyGenerator(1024).Gen(N,T)
+		trsa2048Pub,trsa2048Priv = trsa.NewTRSAKeyGenerator(2048).Gen(N,T)
+		trsa3072Pub,trsa3072Priv = trsa.NewTRSAKeyGenerator(3072).Gen(N,T)
+
+		rsa1024Pub,rsa1024Priv = rsa.NewRSAKeyGenerator(1024).Gen(N,T)
+		rsa2048Pub,rsa2048Priv = rsa.NewRSAKeyGenerator(2048).Gen(N,T)
+		rsa3072Pub,rsa3072Priv = rsa.NewRSAKeyGenerator(3072).Gen(N,T)
+	})
 }
+
 
 /****************
  *Local Tests start here
@@ -68,59 +80,76 @@ func init() {
  * TBLS Benchmark
  ****************/
 func BenchmarkTBLS256LocalGen(b *testing.B) {
+	initTest()
 	keygen := tbls.NewTBLS256KeyGenerator()
 	benchmarkGen(b,keygen)
 }
 
 func BenchmarkTBLS256LocalSign(b *testing.B) {
-	//keygen := tbls.NewTBLS256KeyGenerator()
+	initTest()
 	tbls := tbls.NewTBLS256Optimistic()
 	benchmarkSign(b,tbls,tbls256Priv)
 }
 
 func BenchmarkTBLS256LocalAggregate(b *testing.B) {
-	//keygen := tbls.NewTBLS256KeyGenerator()
+	initTest()
 	tbls := tbls.NewTBLS256Optimistic()
 	benchmarkAggregate(b,tbls,tbls256Pub,tbls256Priv)
 }
 
 func BenchmarkTBLS256LocalVerify(b *testing.B) {
-	//keygen := tbls.NewTBLS256KeyGenerator()
+	initTest()
 	tbls := tbls.NewTBLS256Optimistic()
 	benchmarkVerify(b,tbls,tbls256Pub,tbls256Priv)
 }
-
 
 /****************
  * BLS Benchmark
  ****************/
 
+func BenchmarkBLS256LocalGen(b *testing.B) {
+	initTest()
+	keygen := bls.NewBLSKeyGenerator256()
+	benchmarkGen(b,keygen)
+}
 
+func BenchmarkBLS256LocalSign(b *testing.B) {
+	initTest()
+	bls := bls.NewBLS256()
+	benchmarkSign(b,bls,bls256Priv)
+}
+
+func BenchmarkBLS256LocalVerify(b *testing.B) {
+	initTest()
+	bls := bls.NewBLS256()
+	benchmarkVerifyNonThreshold(b,bls,bls256Pub,bls256Priv)
+}
 
 /****************
  * TRSA Benchmark
  ****************/
 
 //1024 STARTS HERE
-
 func BenchmarkTRSA1024LocalGen(b *testing.B) {
+	initTest()
 	keygen := trsa.NewTRSAKeyGenerator(1024)
 	benchmarkGen(b,keygen)
 }
 
 func BenchmarkTRSA1024LocalSign(b *testing.B) {
-	//keygen := trsa.NewTRSAKeyGenerator(1024)
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(1024)
 	benchmarkSign(b,trsa,trsa1024Priv)
 }
 
 func BenchmarkTRSA1024LocalAggregate(b *testing.B) {
-	//keygen := trsa.NewTRSAKeyGenerator(1024)
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(1024)
 	benchmarkAggregate(b,trsa,trsa1024Pub,trsa1024Priv)
 }
 
 func BenchmarkTRSA1024LocalVerify(b *testing.B) {
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(1024)
 	benchmarkVerify(b,trsa,trsa1024Pub,trsa1024Priv)
 }
@@ -128,42 +157,50 @@ func BenchmarkTRSA1024LocalVerify(b *testing.B) {
 //2048 STARTS HERE
 
 func BenchmarkTRSA2048LocalGen(b *testing.B) {
+	initTest()
 	keygen := trsa.NewTRSAKeyGenerator(2048)
 	benchmarkGen(b,keygen)
 }
 
 func BenchmarkTRSA2048LocalSign(b *testing.B) {
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(2048)
 	benchmarkSign(b,trsa,trsa2048Priv)
 }
 
 func BenchmarkTRSA2048LocalAggregate(b *testing.B) {
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(2048)
 	benchmarkAggregate(b,trsa,trsa2048Pub,trsa2048Priv)
 }
 
 func BenchmarkTRSA2048LocalVerify(b *testing.B) {
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(2048)
 	benchmarkVerify(b,trsa,trsa2048Pub,trsa2048Priv)
 }
 
 //3072 STARTS HERE
 func BenchmarkTRSA3072LocalGen(b *testing.B) {
+	initTest()
 	keygen := trsa.NewTRSAKeyGenerator(3072)
 	benchmarkGen(b,keygen)
 }
 
 func BenchmarkTRSA3072LocalSign(b *testing.B) {
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(3072)
 	benchmarkSign(b,trsa,trsa3072Priv)
 }
 
 func BenchmarkTRSA3072LocalAggregate(b *testing.B) {
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(3072)
 	benchmarkAggregate(b,trsa,trsa3072Pub,trsa3072Priv)
 }
 
 func BenchmarkTRSA3072LocalVerify(b *testing.B) {
+	initTest()
 	trsa := trsa.NewOptimisticTRSA(3072)
 	benchmarkVerify(b,trsa,trsa3072Pub,trsa3072Priv)
 }
@@ -175,19 +212,20 @@ func BenchmarkTRSA3072LocalVerify(b *testing.B) {
 
 //1024
 func BenchmarkRSA1024LocalGen(b *testing.B) {
+	initTest()
 	keygen := rsa.NewRSAKeyGenerator(1024)
 	benchmarkGen(b,keygen)
 }
 
 func BenchmarkRSA1024LocalSign(b *testing.B) {
-	//keygen := rsa.NewRSAKeyGenerator(1024)
+	initTest()
 	trsa := rsa.NewRSA(1024)
 
 	benchmarkSign(b,trsa,rsa1024Priv)
 }
 
 func BenchmarkRSA1024LocalVerify(b *testing.B) {
-	//keygen := rsa.NewRSAKeyGenerator(1024)
+	initTest()
 	trsa := rsa.NewRSA(1024)
 	benchmarkVerifyNonThreshold(b,trsa,rsa1024Pub,rsa1024Priv)
 }
@@ -195,38 +233,40 @@ func BenchmarkRSA1024LocalVerify(b *testing.B) {
 
 //2048
 func BenchmarkRSA2048LocalGen(b *testing.B) {
+	initTest()
 	keygen := rsa.NewRSAKeyGenerator(2048)
 	benchmarkGen(b,keygen)
 }
 
 func BenchmarkRSA2048LocalSign(b *testing.B) {
-	//keygen := rsa.NewRSAKeyGenerator(1024)
+	initTest()
 	trsa := rsa.NewRSA(2048)
 
 	benchmarkSign(b,trsa,rsa2048Priv)
 }
 
 func BenchmarkRSA2048LocalVerify(b *testing.B) {
-	//keygen := rsa.NewRSAKeyGenerator(1024)
+	initTest()
 	trsa := rsa.NewRSA(2048)
 	benchmarkVerifyNonThreshold(b,trsa,rsa2048Pub,rsa2048Priv)
 }
 
 //3072
 func BenchmarkRSA3072LocalGen(b *testing.B) {
+	initTest()
 	keygen := rsa.NewRSAKeyGenerator(3072)
 	benchmarkGen(b,keygen)
 }
 
 func BenchmarkRSA3072LocalSign(b *testing.B) {
-	//keygen := rsa.NewRSAKeyGenerator(1024)
+	initTest()
 	trsa := rsa.NewRSA(3072)
 
 	benchmarkSign(b,trsa,rsa3072Priv)
 }
 
 func BenchmarkRSA3072LocalVerify(b *testing.B) {
-	//keygen := rsa.NewRSAKeyGenerator(1024)
+	initTest()
 	trsa := rsa.NewRSA(3072)
 	benchmarkVerifyNonThreshold(b,trsa,rsa3072Pub,rsa3072Priv)
 }
@@ -247,9 +287,6 @@ func benchmarkGen(b *testing.B,keygen crypto.KeyShareGenerator){
 }
 
 func benchmarkSign(b *testing.B,sva crypto.SignerVerifierAggregator, privList crypto.PrivateKeyList){
-
-	//_,privList := keygen.Gen(N,T)
-
 	b.ResetTimer()
 	var sig []byte
 	for i := 0; i < b.N; i++ {

@@ -10,7 +10,7 @@ import (
 	ths "go.dedis.ch/kyber/v3/sign/tbls"
 )
 
-const TBLSPessimistic = "TBLS256/Pessimistic"
+const TBLSPessimistic = "TBLS256Pessimistic"
 
 func recoverPessimistic(suite pairing.Suite, public *share.PubPoly, msg []byte, sigs [][]byte, t, n int) ([]byte, error){
 	if len(sigs) < t {

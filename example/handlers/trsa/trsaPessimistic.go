@@ -3,12 +3,13 @@ package trsa
 import (
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
 	"github.com/jffp113/go-util/algorithms/twiddle"
 	"github.com/niclabs/tcrsa"
 )
 
-const PessimisticScheme = "TRSA/Pessimistic"
+const PessimisticScheme = "TRSA%vPessimistic"
 
 func aggregatePessimistic(sigShares tcrsa.SigShareList,digest []byte,pub pubKey, t, n int) (signature []byte, err error){
 	if len(sigShares) < t {
@@ -40,17 +41,19 @@ func aggregatePessimistic(sigShares tcrsa.SigShareList,digest []byte,pub pubKey,
 }
 
 
-func NewPessimisticTRSA() crypto.SignerVerifierAggregator {
+func NewPessimisticTRSA(size int) crypto.SignerVerifierAggregator {
 	return &trsa{
-		scheme: PessimisticScheme,
+		scheme: fmt.Sprintf(PessimisticScheme,size),
 		aggregate: aggregatePessimistic,
+		keySize: size,
 	}
 }
 
-func NewPessimisticTRSACryptoHandler() crypto.THSignerHandler {
+func NewPessimisticTRSACryptoHandler(size int) crypto.THSignerHandler {
 	return &trsa{
-		scheme: PessimisticScheme,
+		scheme: fmt.Sprintf(PessimisticScheme,size),
 		aggregate: aggregatePessimistic,
+		keySize: size,
 	}
 }
 

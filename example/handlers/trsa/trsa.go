@@ -21,6 +21,7 @@ type AggregateTRSA func(sigShares tcrsa.SigShareList,digest []byte,pub pubKey, t
 type trsa struct {
 	aggregate AggregateTRSA
 	scheme string
+	keySize int
 }
 
 type signatureShare struct {
@@ -121,7 +122,7 @@ func getValidShares(sigShares tcrsa.SigShareList,docPKCS1 []byte, pub pubKey) tc
 
 func (self trsa) Gen(n int, t int) (crypto.PublicKey, crypto.PrivateKeyList) {
 	// Generate keys provides to u with a list of keyShares and the key metainformation.
-	keyShares, keyMeta, err := tcrsa.NewKey(1024, uint16(t), uint16(n), nil)
+	keyShares, keyMeta, err := tcrsa.NewKey(self.keySize, uint16(t), uint16(n), nil)
 
 	if err != nil {
 		panic(err)
@@ -156,8 +157,8 @@ func (self trsa) UnmarshalPrivate(data []byte) crypto.PrivateKey {
 	return priv
 }
 
-func NewTRSAKeyGenerator() crypto.KeyShareGenerator {
-	return &trsa{}
+func NewTRSAKeyGenerator(keysize int) crypto.KeyShareGenerator {
+	return &trsa{keySize: keysize}
 }
 
 func marshallToJSON(v interface{}) ([]byte, error) {

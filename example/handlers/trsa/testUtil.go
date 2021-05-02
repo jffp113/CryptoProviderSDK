@@ -15,7 +15,7 @@ var once = &sync.Once{}
 
 func initTests() {
 	/* load test data */
-	keygen := NewTRSAKeyGenerator()
+	keygen := NewTRSAKeyGenerator(1024)
 	n := 10
 	t := n/2 + 1
 
@@ -91,12 +91,12 @@ func trsaSuccessMarshallAndUnmarshallSignature(n, t int,trsa crypto.THSignerHand
 
 	pub := publicKeyTest[getEntryName(t,n)]
 	shares := privateSharesTest[getEntryName(t,n)]
-	h := NewTRSACryptoHandler()
+	//h := NewTRSACryptoHandler(1024)
 	sigShares := make([][]byte, 0)
 	for _, x := range shares {
 		b, err := x.MarshalBinary()
 		require.Nil(test, err)
-		x2 := h.UnmarshalPrivate(b)
+		x2 := trsa.UnmarshalPrivate(b)
 
 		s, err := trsa.Sign(msg, x2)
 		require.Nil(test, err)
@@ -105,7 +105,7 @@ func trsaSuccessMarshallAndUnmarshallSignature(n, t int,trsa crypto.THSignerHand
 
 	b, err := pub.MarshalBinary()
 	require.Nil(test, err)
-	pub2 := h.UnmarshalPublic(b)
+	pub2 := trsa.UnmarshalPublic(b)
 
 	sig, err := trsa.Aggregate(sigShares, msg, pub2, t, n)
 
@@ -146,7 +146,6 @@ func testTRSAByzantineSignature(trsa crypto.THSignerHandler, test *testing.T) {
 	require.NotNil(test, err) //TODO It should detect a error here NotNil
 
 }
-
 
 func testTRSASomeByzantineSignature(trsa crypto.THSignerHandler, test *testing.T) {
 	var err error

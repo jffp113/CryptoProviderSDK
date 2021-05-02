@@ -138,7 +138,7 @@ func (h *handlerDecorator) verify(msg []byte) []byte {
 	err = h.Verify(req.Signature, req.Msg, pub)
 
 	if err != nil {
-		logger.Debug("Invalid Signature")
+		logger.Debugf("Invalid Signature: %v",err)
 		return createsVerifyTHSErrorMsg()
 	}
 

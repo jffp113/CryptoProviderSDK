@@ -9,7 +9,9 @@ import (
 	ths "go.dedis.ch/kyber/v3/sign/tbls"
 )
 
-const TBLSOptimistic = "TBLS256/Optimistic"
+const TBLSOptimistic = "TBLS256Optimistic"
+
+
 
 func recoverOptimistic(suite pairing.Suite, public *share.PubPoly, msg []byte, sigs [][]byte, t, n int) ([]byte, error){
 	pubShares := make([]*share.PubShare, 0)
@@ -55,6 +57,8 @@ func NewTBLS256OptimisticCryptoHandler() crypto.THSignerHandler {
 		NewTBLS256KeyGenerator(),
 		TBLSOptimistic}
 }
+
+
 
 
 

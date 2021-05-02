@@ -2,11 +2,12 @@ package trsa
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
 	"github.com/niclabs/tcrsa"
 )
 
-const OptimisticScheme = "TRSA/Optimistic"
+const OptimisticScheme = "TRSA%vOptimistic"
 
 func aggregateOptimistic(sigShares tcrsa.SigShareList,digest []byte,pub pubKey, t, n int) (signature []byte, err error){
 	docHash := sha256.Sum256(digest)
@@ -19,16 +20,18 @@ func aggregateOptimistic(sigShares tcrsa.SigShareList,digest []byte,pub pubKey, 
 	return valid.Join(docPKCS1, pub.Meta)
 }
 
-func NewOptimisticTRSA() crypto.SignerVerifierAggregator {
+func NewOptimisticTRSA(size int) crypto.SignerVerifierAggregator {
 	return &trsa{
-		scheme: OptimisticScheme,
+		scheme: fmt.Sprintf(OptimisticScheme,size),
 		aggregate: aggregateOptimistic,
+		keySize: size,
 	}
 }
 
-func NewOptimisticTRSACryptoHandler() crypto.THSignerHandler {
+func NewOptimisticTRSACryptoHandler(size int) crypto.THSignerHandler {
 	return &trsa{
-		scheme: OptimisticScheme,
+		scheme: fmt.Sprintf(OptimisticScheme,size),
 		aggregate: aggregateOptimistic,
+		keySize: size,
 	}
 }
