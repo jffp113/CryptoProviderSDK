@@ -91,3 +91,7 @@ func NewRSAKeyGenerator(keySize int) crypto.KeyShareGenerator {
 func NewRSA(keySize int) crypto.SignerVerifierAggregator {
 	return &rsaHandler{RSA + fmt.Sprint(keySize),keySize}
 }
+
+func NewRSAHandler(keySize int) crypto.THSignerHandler {
+	return &rsaHandler{RSA + fmt.Sprint(keySize),keySize}
+}
