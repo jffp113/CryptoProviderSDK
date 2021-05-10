@@ -1,47 +1,39 @@
 package tbls
 
 import (
+	"errors"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
+	"github.com/jffp113/go-util/algorithms/twiddle"
 	"go.dedis.ch/kyber/v3/pairing"
 	"go.dedis.ch/kyber/v3/pairing/bn256"
 	"go.dedis.ch/kyber/v3/share"
-	"go.dedis.ch/kyber/v3/sign/bls"
 	ths "go.dedis.ch/kyber/v3/sign/tbls"
 )
 
 const TBLSOptimistic = "TBLS256Optimistic"
 
-
-
 func recoverOptimistic(suite pairing.Suite, public *share.PubPoly, msg []byte, sigs [][]byte, t, n int) ([]byte, error){
-	pubShares := make([]*share.PubShare, 0)
-	for _, sig := range sigs {
-		s := ths.SigShare(sig)
-		i, err := s.Index()
-		if err != nil {
-			continue
+	if len(sigs) < t {
+		return nil, errors.New("not enough signatures")
+	}
+
+	tw := twiddle.New(t, len(sigs))
+
+	for b := tw.Next(); b != nil; b = tw.Next() {
+		var perm [][]byte
+
+		for i,c := range b {
+			if c {
+				perm = append(perm,sigs[i])
+			}
 		}
-		if err = bls.Verify(suite, public.Eval(i).V, msg, s.Value()); err != nil {
-			continue
-		}
-		point := suite.G1().Point()
-		if err := point.UnmarshalBinary(s.Value()); err != nil {
-			return nil, err
-		}
-		pubShares = append(pubShares, &share.PubShare{I: i, V: point})
-		if len(pubShares) >= t {
-			break
+		//fmt.Println(perm)
+		sig,err := ths.Recover(suite,public,msg,perm,t,n)
+		if err == nil {
+			return sig,nil
 		}
 	}
-	commit, err := share.RecoverCommit(suite.G1(), pubShares, t, n)
-	if err != nil {
-		return nil, err
-	}
-	sig, err := commit.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	return sig, nil
+	return nil, errors.New("no valid combination found")
 }
 
 func NewTBLS256Optimistic() crypto.SignerVerifierAggregator {
