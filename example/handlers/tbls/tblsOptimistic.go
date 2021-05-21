@@ -7,6 +7,7 @@ import (
 	"go.dedis.ch/kyber/v3/pairing"
 	"go.dedis.ch/kyber/v3/pairing/bn256"
 	"go.dedis.ch/kyber/v3/share"
+	"go.dedis.ch/kyber/v3/sign/bls"
 	ths "go.dedis.ch/kyber/v3/sign/tbls"
 )
 
@@ -28,12 +29,48 @@ func recoverOptimistic(suite pairing.Suite, public *share.PubPoly, msg []byte, s
 			}
 		}
 		//fmt.Println(perm)
-		sig,err := ths.Recover(suite,public,msg,perm,t,n)
-		if err == nil {
-			return sig,nil
+		sig,err := recover(suite,public,msg,perm,t,n)
+		if err != nil {
+			//return nil, errors.New("no valid combination found")
+			continue
 		}
+
+		err = bls.Verify(suite, public.Commit(), msg, sig)
+
+		if err == nil {
+			return sig, nil
+		}
+
 	}
 	return nil, errors.New("no valid combination found")
+}
+
+func recover(suite pairing.Suite, public *share.PubPoly, msg []byte, sigs [][]byte, t, n int) ([]byte,error){
+	pubShares := make([]*share.PubShare, 0)
+	for _, sig := range sigs {
+		s := ths.SigShare(sig)
+		point := suite.G1().Point()
+		i, err := s.Index()
+		if err != nil {
+			return nil, err
+		}
+		if err := point.UnmarshalBinary(s.Value()); err != nil {
+			return nil, err
+		}
+		pubShares = append(pubShares, &share.PubShare{I: i, V: point})
+		if len(pubShares) >= t {
+			break
+		}
+	}
+	commit, err := share.RecoverCommit(suite.G1(), pubShares, t, n)
+	if err != nil {
+		return nil, err
+	}
+	sig, err := commit.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return sig, nil
 }
 
 func NewTBLS256Optimistic() crypto.SignerVerifierAggregator {
