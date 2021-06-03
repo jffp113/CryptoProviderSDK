@@ -71,6 +71,8 @@ func getKeyGen(scheme string) crypto.KeyShareGenerator {
 		return trsa.NewTRSAKeyGenerator(1024)
 	case "TRSA2048":
 		return trsa.NewTRSAKeyGenerator(2048)
+	case "TRSA3072":
+		return trsa.NewTRSAKeyGenerator(3072)
 	default:
 		return nil
 	}

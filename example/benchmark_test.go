@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"github.com/jffp113/CryptoProviderSDK/client"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/bls"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/rsa"
@@ -13,7 +15,7 @@ import (
 
 const (
 	T = 3
-	N = 5
+	N = 4
 )
 var Digest = []byte("Hello")
 
@@ -52,11 +54,17 @@ var rsa2048Pub crypto.PublicKey
 var rsa3072Priv crypto.PrivateKeyList
 var rsa3072Pub crypto.PublicKey
 
+//Remote primitives
+var cryptoProvider crypto.ContextFactory
+
 
 var once sync.Once
 
+
 func initTest() {
 	once.Do(func() {
+		cryptoProvider,_ = client.NewCryptoFactory(URI)
+
 		tbls256Pub,tbls256Priv = tbls.NewTBLS256KeyGenerator().Gen(N,T)
 
 		bls256Pub,bls256Priv = bls.NewBLSKeyGenerator256().Gen(N,T)
@@ -68,6 +76,8 @@ func initTest() {
 		rsa1024Pub,rsa1024Priv = rsa.NewRSAKeyGenerator(1024).Gen(N,T)
 		rsa2048Pub,rsa2048Priv = rsa.NewRSAKeyGenerator(2048).Gen(N,T)
 		rsa3072Pub,rsa3072Priv = rsa.NewRSAKeyGenerator(3072).Gen(N,T)
+
+
 	})
 }
 
@@ -269,6 +279,235 @@ func BenchmarkRSA3072LocalVerify(b *testing.B) {
 	initTest()
 	trsa := rsa.NewRSA(3072)
 	benchmarkVerifyNonThreshold(b,trsa,rsa3072Pub,rsa3072Priv)
+}
+
+
+
+/****************
+ *Remote Tests start here
+ ****************/
+
+/****************
+ * TBLS Benchmark
+ ****************/
+func BenchmarkTBLS256RemoteGen(b *testing.B) {
+	initTest()
+	keygen,close := cryptoProvider.GetKeyGenerator(tbls.TBLSOptimistic)
+	defer close.Close()
+	benchmarkGen(b,keygen)
+}
+
+func BenchmarkTBLS256RemoteSign(b *testing.B) {
+	initTest()
+	tbls,close := cryptoProvider.GetSignerVerifierAggregator(tbls.TBLSOptimistic)
+	defer close.Close()
+	benchmarkSign(b,tbls,tbls256Priv)
+}
+
+func BenchmarkTBLS256RemoteAggregate(b *testing.B) {
+	initTest()
+	tbls,close := cryptoProvider.GetSignerVerifierAggregator(tbls.TBLSOptimistic)
+	defer close.Close()
+	benchmarkAggregate(b,tbls,tbls256Pub,tbls256Priv)
+}
+
+func BenchmarkTBLS256RemoteVerify(b *testing.B) {
+	initTest()
+	tbls,close := cryptoProvider.GetSignerVerifierAggregator(tbls.TBLSOptimistic)
+	defer close.Close()
+	benchmarkVerify(b,tbls,tbls256Pub,tbls256Priv)
+}
+
+/****************
+ * Remote TRSA Benchmark
+ ****************/
+
+//1024 STARTS HERE
+func BenchmarkTRSA1024RemoteGen(b *testing.B) {
+	initTest()
+	keygen,close := cryptoProvider.GetKeyGenerator(fmt.Sprintf(trsa.OptimisticScheme,1024))
+	defer close.Close()
+	benchmarkGen(b,keygen)
+}
+
+func BenchmarkTRSA1024RemoteSign(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,1024))
+	defer close.Close()
+	benchmarkSign(b,trsa,trsa1024Priv)
+}
+
+func BenchmarkTRSA1024RemoteAggregate(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,1024))
+	defer close.Close()
+	benchmarkAggregate(b,trsa,trsa1024Pub,trsa1024Priv)
+}
+
+func BenchmarkTRSA1024RemoteVerify(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,1024))
+	defer close.Close()
+	benchmarkVerify(b,trsa,trsa1024Pub,trsa1024Priv)
+}
+
+//2048 STARTS HERE
+
+func BenchmarkTRSA2048RemoteGen(b *testing.B) {
+	initTest()
+	keygen,close := cryptoProvider.GetKeyGenerator(fmt.Sprintf(trsa.OptimisticScheme,2048))
+	defer close.Close()
+	benchmarkGen(b,keygen)
+}
+
+func BenchmarkTRSA2048RemoteSign(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,2048))
+	defer close.Close()
+	benchmarkSign(b,trsa,trsa2048Priv)
+}
+
+func BenchmarkTRSA2048RemoteAggregate(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,2048))
+	defer close.Close()
+	benchmarkAggregate(b,trsa,trsa2048Pub,trsa2048Priv)
+}
+
+func BenchmarkTRSA2048RemoteVerify(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,2048))
+	defer close.Close()
+	benchmarkVerify(b,trsa,trsa2048Pub,trsa2048Priv)
+}
+
+//3072 STARTS HERE
+func BenchmarkTRSA3072RemoteGen(b *testing.B) {
+	initTest()
+	keygen,close := cryptoProvider.GetKeyGenerator(fmt.Sprintf(trsa.OptimisticScheme,3072))
+	defer close.Close()
+	benchmarkGen(b,keygen)
+}
+
+func BenchmarkTRSA3072RemoteSign(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,3072))
+	defer close.Close()
+	benchmarkSign(b,trsa,trsa3072Priv)
+}
+
+func BenchmarkTRSA3072RemoteAggregate(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,3072))
+	defer close.Close()
+	benchmarkAggregate(b,trsa,trsa3072Pub,trsa3072Priv)
+}
+
+func BenchmarkTRSA3072RemoteVerify(b *testing.B) {
+	initTest()
+	trsa,close := cryptoProvider.GetSignerVerifierAggregator(fmt.Sprintf(trsa.OptimisticScheme,3072))
+	defer close.Close()
+	benchmarkVerify(b,trsa,trsa3072Pub,trsa3072Priv)
+}
+
+
+
+/****************
+ * RSA Benchmark
+ ****************/
+
+//1024
+func BenchmarkRSA1024RemoteGen(b *testing.B) {
+	initTest()
+	keygen,close := cryptoProvider.GetKeyGenerator(rsa.RSA + fmt.Sprint(1024))
+	defer close.Close()
+	benchmarkGen(b,keygen)
+}
+
+func BenchmarkRSA1024RemoteSign(b *testing.B) {
+	initTest()
+	rsa ,close := cryptoProvider.GetSignerVerifierAggregator(rsa.RSA + fmt.Sprint(1024))
+	defer close.Close()
+	benchmarkSign(b,rsa,rsa1024Priv)
+}
+
+func BenchmarkRSA1024RemoteVerify(b *testing.B) {
+	initTest()
+	rsa ,close := cryptoProvider.GetSignerVerifierAggregator(rsa.RSA + fmt.Sprint(1024))
+	defer close.Close()
+	benchmarkVerifyNonThreshold(b,rsa,rsa1024Pub,rsa1024Priv)
+}
+
+
+//2048
+func BenchmarkRSA2048RemoteGen(b *testing.B) {
+	initTest()
+	keygen,close := cryptoProvider.GetKeyGenerator(rsa.RSA  + fmt.Sprint(2048))
+	defer close.Close()
+	benchmarkGen(b,keygen)
+}
+
+func BenchmarkRSA2048RemoteSign(b *testing.B) {
+	initTest()
+	rsa ,close := cryptoProvider.GetSignerVerifierAggregator(rsa.RSA + fmt.Sprint(2048))
+	defer close.Close()
+
+	benchmarkSign(b,rsa,rsa2048Priv)
+}
+
+func BenchmarkRSA2048RemoteVerify(b *testing.B) {
+	initTest()
+	rsa ,close := cryptoProvider.GetSignerVerifierAggregator(rsa.RSA + fmt.Sprint(2048))
+	defer close.Close()
+	benchmarkVerifyNonThreshold(b,rsa,rsa2048Pub,rsa2048Priv)
+}
+
+//3072
+func BenchmarkRSA3072RemoteGen(b *testing.B) {
+	initTest()
+	keygen,close := cryptoProvider.GetKeyGenerator(rsa.RSA  + fmt.Sprint(3072))
+	defer close.Close()
+	benchmarkGen(b,keygen)
+}
+
+func BenchmarkRSA3072RemoteSign(b *testing.B) {
+	initTest()
+	rsa ,close := cryptoProvider.GetSignerVerifierAggregator(rsa.RSA + fmt.Sprint(3072))
+	defer close.Close()
+	benchmarkSign(b,rsa,rsa3072Priv)
+}
+
+func BenchmarkRSA3072RemoteVerify(b *testing.B) {
+	initTest()
+	rsa ,close := cryptoProvider.GetSignerVerifierAggregator(rsa.RSA + fmt.Sprint(3072))
+	defer close.Close()
+	benchmarkVerifyNonThreshold(b,rsa,rsa3072Pub,rsa3072Priv)
+}
+
+
+/****************
+ * BLS Benchmark
+ ****************/
+
+func BenchmarkBLS256RemoteGen(b *testing.B) {
+	initTest()
+	keygen,close := cryptoProvider.GetKeyGenerator(bls.BLS)
+	defer close.Close()
+	benchmarkGen(b,keygen)
+}
+
+func BenchmarkBLS256RemoteSign(b *testing.B) {
+	initTest()
+	bls,close := cryptoProvider.GetSignerVerifierAggregator(bls.BLS)
+	defer close.Close()
+	benchmarkSign(b,bls,bls256Priv)
+}
+
+func BenchmarkBLS256RemoteVerify(b *testing.B) {
+	initTest()
+	bls,close := cryptoProvider.GetSignerVerifierAggregator(bls.BLS)
+	defer close.Close()
+	benchmarkVerifyNonThreshold(b,bls,bls256Pub,bls256Priv)
 }
 
 /****************

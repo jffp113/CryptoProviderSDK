@@ -5,6 +5,8 @@ import (
 	"github.com/ipfs/go-log"
 	"github.com/jessevdk/go-flags"
 	"github.com/jffp113/CryptoProviderSDK/crypto"
+	"github.com/jffp113/CryptoProviderSDK/example/handlers/bls"
+	"github.com/jffp113/CryptoProviderSDK/example/handlers/rsa"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/tbls"
 	"github.com/jffp113/CryptoProviderSDK/example/handlers/trsa"
 	"os"
@@ -54,6 +56,14 @@ func main() {
 	processor.AddHandler(trsa.NewPessimisticTRSACryptoHandler(1024))
 	processor.AddHandler(trsa.NewPessimisticTRSACryptoHandler(2048))
 	processor.AddHandler(trsa.NewPessimisticTRSACryptoHandler(3072))
+
+	//RSA
+	processor.AddHandler(rsa.NewRSAHandler(1024))
+	processor.AddHandler(rsa.NewRSAHandler(2048))
+	processor.AddHandler(rsa.NewRSAHandler(3072))
+
+	//BLS
+	processor.AddHandler(bls.NewBLS256Handler())
 
 	processor.Start()
 }
