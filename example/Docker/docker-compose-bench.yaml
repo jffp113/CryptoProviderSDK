@@ -21,7 +21,7 @@ services:
     image: ghcr.io/jffp113/crypto:latest
     expose:
       - 9000
-    command: bash -c "cd example ; go test -bench=. -run=None"
+    command: bash -c "cd example ; go test -bench=. -run=None -timeout 99h"
   crypto:
     image: ghcr.io/jffp113/crypto:latest
     command:  bash -c "sleep 3; ./main -u tcp://bench:9000"
